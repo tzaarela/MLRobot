@@ -140,6 +140,8 @@ When you select the Magnet in the scene:
 ✓ **Works with any shape**: As long as 4 corners hit
 ✓ **Easy to debug**: Can see exactly which rays hit/miss
 ✓ **Collision prevention**: Pushes objects away instead of going through them
+✓ **Perfect stability**: Held objects parented to magnet - zero jitter!
+✓ **Auto-release safety**: Drops object if it collides with obstacles
 
 ## Common Issues
 
@@ -171,6 +173,27 @@ When you select the Magnet in the scene:
 - Increase **Push Force On Enter** if objects not pushed away enough
 - Adjust **Push Force On Stay** (or set to 0 to disable continuous force)
 - Make sure magnet has a collider attached
+
+### Issue: Cube is jittery when being carried
+**Solution**: This shouldn't happen anymore!
+- Object is parented to magnet (perfect rigid connection)
+- If you still see jitter, check that the cube is actually being grabbed
+- Watch for "Grabbed: CubeName" in console
+
+### Issue: Object releases unexpectedly while carrying
+**Solution**: Object is colliding with something!
+- This is by design - held objects auto-release on collision
+- Check what it's hitting (watch console for "collided with X" message)
+- Move more carefully to avoid obstacles
+- Increase object size or reduce collision geometry if needed
+- To disable this feature, comment out the collision monitor code in `TryGrabObject()`
+
+### Issue: Magnet or object passes through walls
+**Solution**: Check collision setup
+- Make sure magnet has a collider
+- Enable `preventPushThrough` for collision avoidance
+- Held objects are kinematic (won't collide) but will auto-release if they hit something
+- Adjust push forces if magnet itself is passing through
 
 ### Issue: Objects bounce too much on collision
 **Solution**: Reduce collision forces
@@ -211,6 +234,34 @@ sensor.AddObservation(magnet.RaysHitting / 4f);
 ```
 
 This gives the agent clear feedback on alignment quality!
+
+## How Jitter Prevention Works
+
+When the gripper grabs an object:
+1. **Stores** the object's original parent and `isKinematic` state
+2. **Parents** the object to the magnet transform
+3. **Sets** `isKinematic = true` to disable physics
+4. Object now moves perfectly with the magnet (it's a child transform)
+5. **Adds** collision monitor that auto-releases if object hits anything (except magnet)
+
+When the gripper releases (or auto-releases):
+1. **Removes** collision monitor
+2. **Unparents** the object (restores original parent)
+3. **Restores** original `isKinematic` state
+4. Object returns to normal physics simulation
+
+**Why this works:**
+- Object is literally parented to magnet - perfect rigid motion, zero jitter
+- No raycasts needed while holding (object moves with magnet as child)
+- Kinematic prevents physics interference
+- Auto-releases if it collides with anything (except the magnet itself)
+- Clean, simple, stable!
+
+**Auto-release on collision:**
+- If held object collides with ANYTHING (walls, other objects, etc.)
+- It will automatically release
+- Prevents getting stuck or pushing through obstacles
+- Only the magnet itself is excluded from triggering release
 
 ## Collision Force Control
 

@@ -59,7 +59,8 @@ namespace RobotArm
 		private bool isActive = false;
 		private GameObject heldObject = null;
 		private Rigidbody heldRigidbody = null;
-		private FixedJoint holdJoint = null;
+		private Transform originalParent = null;
+		private CollisionReleaseMonitor collisionMonitor = null;
 
 		// Detection results
 		private int raysHitting = 0;
@@ -68,10 +69,10 @@ namespace RobotArm
 		private Vector3[] rayEndPoints = new Vector3[4];
 		private bool[] rayHits = new bool[4];
 		private bool isColliding = false;
-		private Rigidbody magnetRigidbody;
 
 		// Cached
 		private MaterialPropertyBlock propertyBlock;
+		private Rigidbody magnetRigidbody;
 		private static readonly int ColorProperty = Shader.PropertyToID("_BaseColor");
 
 		/// <summary>
@@ -148,6 +149,14 @@ namespace RobotArm
 		/// </summary>
 		private void PerformRaycastScan()
 		{
+			// Don't scan if already holding something (object is parented, no need for raycasts)
+			if (IsHoldingObject)
+			{
+				raysHitting = 4; // Keep showing full contact in debug
+				detectedObject = heldObject;
+				return;
+			}
+
 			raysHitting = 0;
 			detectedObject = null;
 
@@ -241,11 +250,19 @@ namespace RobotArm
 			heldObject = obj;
 			heldRigidbody = rb;
 
-			// Create fixed joint to hold object
-			holdJoint = gameObject.AddComponent<FixedJoint>();
-			holdJoint.connectedBody = rb;
-			holdJoint.breakForce = Mathf.Infinity;
-			holdJoint.breakTorque = Mathf.Infinity;
+			// Store original state
+			originalParent = obj.transform.parent;
+
+			// Parent to magnet and make kinematic
+			obj.transform.SetParent(transform, true);
+			rb.isKinematic = true;
+			rb.useGravity = false;
+			rb.interpolation = RigidbodyInterpolation.None;
+
+			// Add collision monitor to auto-release on collision
+			collisionMonitor = obj.AddComponent<CollisionReleaseMonitor>();
+			collisionMonitor.gripper = this;
+			collisionMonitor.magnetTransform = transform;
 
 			UpdateVisuals();
 
@@ -295,15 +312,25 @@ namespace RobotArm
 		/// </summary>
 		public void Release()
 		{
-			if (holdJoint != null)
+			// Remove collision monitor
+			if (collisionMonitor != null)
 			{
-				Destroy(holdJoint);
-				holdJoint = null;
+				Destroy(collisionMonitor);
+				collisionMonitor = null;
+			}
+
+			if (heldObject != null)
+			{
+				// Restore original parent
+				heldObject.transform.SetParent(originalParent, true);
 			}
 
 			if (heldRigidbody != null)
 			{
+				// Restore original kinematic state
 				heldRigidbody.isKinematic = false;
+				heldRigidbody.useGravity = true;
+				heldRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
 				heldRigidbody = null;
 			}
 
@@ -313,6 +340,7 @@ namespace RobotArm
 			}
 
 			heldObject = null;
+			originalParent = null;
 			UpdateVisuals();
 		}
 
@@ -435,5 +463,33 @@ namespace RobotArm
 			}
 		}
 #endif
+	}
+
+	/// <summary>
+	/// Helper component that monitors collisions on held objects and triggers auto-release.
+	/// Automatically added to objects when grabbed, removed when released.
+	/// </summary>
+	internal class CollisionReleaseMonitor: MonoBehaviour
+	{
+		public SimpleRaycastGripper gripper;
+		public Transform magnetTransform;
+
+		private void OnCollisionEnter(Collision collision)
+		{
+			// Ignore collisions with the magnet itself
+			if (collision.transform == magnetTransform || collision.transform.IsChildOf(magnetTransform))
+				return;
+
+			// Collision with something else - auto release!
+			if (gripper != null && gripper.showDebugGizmos)
+			{
+				Debug.Log($"[SimpleGripper] Held object collided with {collision.gameObject.name} - Auto releasing!");
+			}
+
+			if (gripper != null)
+			{
+				gripper.Release();
+			}
+		}
 	}
 }
