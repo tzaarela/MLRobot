@@ -169,7 +169,7 @@ CapsuleCollider:
     serializedVersion: 2
     m_Bits: 0
   m_LayerOverridePriority: 0
-  m_IsTrigger: 0
+  m_IsTrigger: 1
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
@@ -209,7 +209,7 @@ MonoBehaviour:
   - jointTransform: {fileID: 2668105278979274993}
     rotationAxis: {x: 0, y: 0, z: 1}
     minAngle: -150
-    maxAngle: 150
+    maxAngle: 45
     rotationSpeed: 90
     startAngle: -80
     currentAngle: 0
@@ -224,8 +224,8 @@ MonoBehaviour:
     initialLocalRotation: {x: 0, y: 0, z: 0, w: 0}
   - jointTransform: {fileID: 2121595924563370787}
     rotationAxis: {x: 0, y: 0, z: 1}
-    minAngle: -125
-    maxAngle: 125
+    minAngle: -20
+    maxAngle: 200
     rotationSpeed: 90
     startAngle: 0
     currentAngle: 0
@@ -238,7 +238,7 @@ MonoBehaviour:
     startAngle: 0
     currentAngle: 0
     initialLocalRotation: {x: 0, y: 0, z: 0, w: 0}
-  magnet: {fileID: 1107571217}
+  magnet: {fileID: 1107571219}
   toolCenterPoint: {fileID: 1107571213}
   useSmoothMovement: 1
   smoothingSpeed: 10
@@ -271,7 +271,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 27
+    VectorObservationSize: 26
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 6
@@ -318,7 +318,7 @@ MonoBehaviour:
   stepPenalty: -0.0002
   maxEpisodeSteps: 200000
   objectFallThreshold: 0.05
-  showDebugLogs: 1
+  showDebugLogs: 0
 --- !u!114 &101148588
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -799,8 +799,8 @@ GameObject:
   - component: {fileID: 1107571213}
   - component: {fileID: 1107571216}
   - component: {fileID: 1107571215}
-  - component: {fileID: 1107571217}
   - component: {fileID: 1107571218}
+  - component: {fileID: 1107571219}
   m_Layer: 0
   m_Name: Magnet
   m_TagString: Untagged
@@ -873,32 +873,6 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1107571212}
   m_Mesh: {fileID: 10206, guid: 0000000000000000e000000000000000, type: 0}
---- !u!114 &1107571217
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1107571212}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 414733820d26cff43a143244483d9837, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  magnetRadius: 0.12
-  detectionRange: 0.02
-  minContactPercentage: 0.8
-  pickupLayerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  pickupTag: Pickup
-  magnetRenderer: {fileID: 1107571215}
-  inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
-  activeColor: {r: 0, g: 0, b: 1, a: 1}
-  holdingColor: {r: 0, g: 1, b: 0, a: 1}
-  showDebugGizmos: 1
-  preventPushThrough: 1
-  pushForce: 1
 --- !u!65 &1107571218
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -920,6 +894,35 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 0.8, y: 2.000002, z: 0.8}
   m_Center: {x: 0.00000005960467, y: 0.0000076293945, z: -0.00000008940699}
+--- !u!114 &1107571219
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1107571212}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c15c0fefc9983a046837efca542becef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  magnetRadius: 0.05
+  raycastDistance: 0.02
+  pickupLayerMask:
+    serializedVersion: 2
+    m_Bits: 128
+  pickupTag: Pickup
+  robotRoot: {fileID: 7989703180781460116}
+  magnetFaceDirection: {x: 0, y: 1, z: 0}
+  magnetRenderer: {fileID: 1107571215}
+  inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
+  activeColor: {r: 0, g: 0, b: 1, a: 1}
+  holdingColor: {r: 0, g: 1, b: 0, a: 1}
+  showDebugGizmos: 1
+  showDebugRays: 1
+  preventPushThrough: 1
+  pushForceOnEnter: 0.1
+  pushForceOnStay: 0.01
 --- !u!1 &1363382328
 GameObject:
   m_ObjectHideFlags: 0
@@ -983,7 +986,7 @@ GameObject:
   - component: {fileID: 1381363178}
   - component: {fileID: 1381363177}
   - component: {fileID: 1381363181}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Cube
   m_TagString: Pickup
   m_Icon: {fileID: 0}

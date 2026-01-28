@@ -15,7 +15,7 @@ namespace RobotArm
 
 		[Header("End Effector")]
 		[Tooltip("The magnet/gripper at the end of the arm")]
-		public MagnetGripper magnet;
+		public SimpleRaycastGripper magnet;
 
 		[Tooltip("Transform representing the tool center point (TCP)")]
 		public Transform toolCenterPoint;

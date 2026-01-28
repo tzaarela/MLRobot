@@ -1,3 +1,5 @@
+using System;
+using Unity.MLAgents.Policies;
 using UnityEngine;
 
 namespace RobotArm
@@ -24,6 +26,9 @@ namespace RobotArm
 
 		// Currently selected joint (0-5)
 		private int selectedJoint = 0;
+		private BehaviorParameters agentBehaviour;
+
+		private bool isHeuristicsOnly = false;
 
 		// Key mappings
 		private readonly KeyCode[] jointSelectKeys = new KeyCode[]
@@ -35,6 +40,16 @@ namespace RobotArm
             KeyCode.T, // J5
             KeyCode.Y  // J6
         };
+
+		private void Start()
+		{
+			isHeuristicsOnly = GetComponent<BehaviorParameters>().BehaviorType == BehaviorType.HeuristicOnly;
+
+			if (!isHeuristicsOnly) 
+			{ 
+				this.enabled = false;
+			}
+		}
 
 		private void Update()
 		{
@@ -126,7 +141,6 @@ namespace RobotArm
 			{
 				GUILayout.Space(5);
 				var magnet = robotController.magnet;
-				GUILayout.Label($"Contact: {magnet.CurrentContactPercentage * 100:F0}%");
 				GUILayout.Label($"Holding: {(magnet.IsHoldingObject ? "Yes" : "No")}");
 			}
 

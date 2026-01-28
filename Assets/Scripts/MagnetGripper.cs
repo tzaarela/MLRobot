@@ -17,6 +17,9 @@ namespace RobotArm
 		[Tooltip("Maximum distance to detect objects")]
 		public float detectionRange = 0.02f;
 
+		[Tooltip("If transform.position is not at the contact face, set this offset. Distance from transform to the actual magnet face along the normal direction.")]
+		public float contactPointOffset = 0f;
+
 		[Tooltip("Minimum contact percentage required to grip (0-1)")]
 		[Range(0f, 1f)]
 		public float minContactPercentage = 0.8f;
@@ -26,6 +29,12 @@ namespace RobotArm
 
 		[Tooltip("Tag for objects that can be picked up (leave empty for any)")]
 		public string pickupTag = "Pickup";
+
+		[Tooltip("Root transform of the robot (to exclude from detection). If not set, uses transform.root which may be too broad.")]
+		public Transform robotRoot;
+
+		[Tooltip("Local direction the magnet face points (the direction it 'pushes' objects). Default is up (0,1,0). Use down (0,-1,0) if rays point wrong way.")]
+		public Vector3 magnetFaceDirection = Vector3.up;
 
 		[Header("Visual Feedback")]
 		[Tooltip("Renderer to change color when active")]
@@ -42,6 +51,7 @@ namespace RobotArm
 
 		[Header("Debug")]
 		public bool showDebugGizmos = true;
+		public bool showDebugRays = false;
 
 		[Header("Collision Prevention")]
 		[Tooltip("Prevent magnet from pushing through objects")]
@@ -64,6 +74,9 @@ namespace RobotArm
 		// Cached
 		private MaterialPropertyBlock propertyBlock;
 		private static readonly int ColorProperty = Shader.PropertyToID("_BaseColor");
+
+		// Debug visualization
+		private List<(Vector3 start, Vector3 end, bool hit)> debugRays = new List<(Vector3, Vector3, bool)>();
 
 		/// <summary>
 		/// Is the magnet currently activated?
@@ -178,22 +191,47 @@ namespace RobotArm
 			DistanceToNearestObject = float.MaxValue;
 			CurrentContactPercentage = 0f;
 
-			// Cast rays in a pattern across the magnet face to detect objects
-			Vector3 magnetCenter = transform.position;
-			Vector3 magnetNormal = transform.up; // Magnet faces along local up
+			// Calculate actual magnet face position
+			Vector3 magnetNormal = transform.TransformDirection(magnetFaceDirection).normalized;
+			Vector3 magnetCenter = transform.position - magnetNormal * contactPointOffset;
 
 			// Find all colliders in range
 			Collider[] colliders = Physics.OverlapSphere(magnetCenter, magnetRadius + detectionRange, pickupLayerMask);
+
+			// Debug: Log what we found
+			if (colliders.Length > 0 && showDebugGizmos)
+			{
+				Debug.Log($"[MagnetGripper] Found {colliders.Length} colliders in range");
+				if (contactPointOffset > 0.001f)
+				{
+					Debug.Log($"[MagnetGripper] Using contact offset: {contactPointOffset}m");
+					Debug.Log($"[MagnetGripper] Transform pos: {transform.position}, Contact pos: {magnetCenter}");
+				}
+			}
 
 			foreach (var col in colliders)
 			{
 				// Skip if wrong tag
 				if (!string.IsNullOrEmpty(pickupTag) && !col.CompareTag(pickupTag))
+				{
+					if (showDebugGizmos)
+					{
+						Debug.Log($"[MagnetGripper] Skipping {col.name} - wrong tag (has '{col.tag}', need '{pickupTag}')");
+					}
 					continue;
+				}
 
-				// Skip self and children
-				if (col.transform.IsChildOf(transform.root))
+				// Skip self and children of robot
+				// Use robotRoot if assigned, otherwise fall back to transform.root
+				Transform rootToCheck = robotRoot != null ? robotRoot : transform.root;
+				if (col.transform.IsChildOf(rootToCheck))
+				{
+					if (showDebugGizmos)
+					{
+						Debug.Log($"[MagnetGripper] Skipping {col.name} - is child of robot root ({rootToCheck.name})");
+					}
 					continue;
+				}
 
 				// Calculate contact percentage
 				float contactPercent = CalculateContactPercentage(col, magnetCenter, magnetNormal);
@@ -212,10 +250,43 @@ namespace RobotArm
 
 		private float CalculateContactPercentage(Collider targetCollider, Vector3 magnetCenter, Vector3 magnetNormal)
 		{
+			// Clear previous debug rays
+			if (showDebugRays)
+			{
+				debugRays.Clear();
+			}
+
 			// Sample points across the magnet face in a grid pattern
 			int samplesPerAxis = 5;
 			int totalSamples = 0;
 			int contactSamples = 0;
+
+			Debug.Log($"[MagnetGripper] ===== CALCULATING CONTACT =====");
+			Debug.Log($"[MagnetGripper] Target: {targetCollider.name}");
+			Debug.Log($"[MagnetGripper] Magnet Center: {magnetCenter}");
+			Debug.Log($"[MagnetGripper] Magnet Normal: {magnetNormal}");
+			Debug.Log($"[MagnetGripper] Magnet Radius: {magnetRadius}");
+			Debug.Log($"[MagnetGripper] Detection Range: {detectionRange}");
+			Debug.Log($"[MagnetGripper] Layer Mask: {pickupLayerMask.value}");
+
+			// Test one sample ray first
+			Vector3 testRayStart = magnetCenter + magnetNormal * 0.001f;
+			Vector3 testRayDir = -magnetNormal;
+			float testRayDist = detectionRange + 0.003f;
+
+			Debug.Log($"[MagnetGripper] TEST RAY:");
+			Debug.Log($"  Start: {testRayStart}");
+			Debug.Log($"  Direction: {testRayDir}");
+			Debug.Log($"  Distance: {testRayDist}");
+
+			RaycastHit[] testHits = Physics.RaycastAll(testRayStart, testRayDir, testRayDist, pickupLayerMask);
+			Debug.Log($"  Hits: {testHits.Length}");
+			foreach (var h in testHits)
+			{
+				bool isTarget = h.collider == targetCollider;
+				bool isChildOfRoot = h.collider.transform.IsChildOf(transform.root);
+				Debug.Log($"    - {h.collider.name} at {h.distance:F4}m [Target:{isTarget}, ChildOfRoot:{isChildOfRoot}]");
+			}
 
 			for (int x = 0; x < samplesPerAxis; x++)
 			{
@@ -230,24 +301,52 @@ namespace RobotArm
 
 					totalSamples++;
 
-					// Get world position of sample point
+					// Get world position of sample point on the magnet face
+					// The magnet face is in the XZ plane of the magnet's local space
 					Vector3 localOffset = new Vector3(u * magnetRadius, 0f, v * magnetRadius);
 					Vector3 samplePoint = transform.TransformPoint(localOffset);
 
 					// Raycast downward (along negative magnet normal)
-					Ray ray = new Ray(samplePoint + magnetNormal * 0.01f, -magnetNormal);
+					// Start slightly above the magnet face
+					Vector3 rayStart = samplePoint + magnetNormal * 0.001f;
+					Vector3 rayDirection = -magnetNormal;
+					float rayDistance = detectionRange + 0.003f;
 
-					if (Physics.Raycast(ray, out RaycastHit hit, detectionRange + 0.02f, pickupLayerMask))
+					bool hitTarget = false;
+
+					// Use RaycastAll to get all hits and check if target is among them
+					RaycastHit[] hits = Physics.RaycastAll(rayStart, rayDirection, rayDistance, pickupLayerMask);
+
+					foreach (var hit in hits)
 					{
+						// Skip if we hit ourselves
+						Transform rootToCheck = robotRoot != null ? robotRoot : transform.root;
+						if (hit.collider.transform.IsChildOf(rootToCheck))
+							continue;
+
 						if (hit.collider == targetCollider)
 						{
 							contactSamples++;
+							hitTarget = true;
+							break;
 						}
+					}
+
+					// Store for debug visualization
+					if (showDebugRays)
+					{
+						debugRays.Add((rayStart, rayStart + rayDirection * rayDistance, hitTarget));
 					}
 				}
 			}
 
-			return totalSamples > 0 ? (float)contactSamples / totalSamples : 0f;
+			float percentage = totalSamples > 0 ? (float)contactSamples / totalSamples : 0f;
+
+			Debug.Log($"[MagnetGripper] ===== RESULT =====");
+			Debug.Log($"[MagnetGripper] Contact: {contactSamples}/{totalSamples} = {percentage * 100f:F1}%");
+			Debug.Log($"[MagnetGripper] ===================");
+
+			return percentage;
 		}
 
 		private void TryGrabObject()
@@ -265,11 +364,17 @@ namespace RobotArm
 				rb = NearestObject.GetComponentInParent<Rigidbody>();
 			}
 
-			if (rb == null) return;
+			if (rb == null)
+			{
+				Debug.LogWarning($"Cannot grab {NearestObject.name}: No Rigidbody found!");
+				return;
+			}
 
 			// Grab the object
 			heldObject = NearestObject;
 			heldRigidbody = rb;
+
+			Debug.Log($"Grabbed {heldObject.name}!");
 
 			// Create fixed joint to hold object
 			holdJoint = gameObject.AddComponent<FixedJoint>();
@@ -386,7 +491,7 @@ namespace RobotArm
 
 			// Draw normal
 			Gizmos.color = Color.green;
-			Gizmos.DrawRay(Vector3.zero, Vector3.up * 0.1f);
+			Gizmos.DrawRay(Vector3.zero, magnetFaceDirection * 0.1f);
 
 			Gizmos.matrix = Matrix4x4.identity;
 
@@ -395,6 +500,22 @@ namespace RobotArm
 			{
 				Gizmos.color = CurrentContactPercentage >= minContactPercentage ? Color.green : Color.red;
 				Gizmos.DrawWireSphere(NearestObject.transform.position, 0.05f);
+
+				// Draw text
+				UnityEditor.Handles.Label(
+					NearestObject.transform.position + Vector3.up * 0.1f,
+					$"Contact: {CurrentContactPercentage * 100f:F0}%\nDist: {DistanceToNearestObject:F3}m"
+				);
+			}
+
+			// Draw debug rays
+			if (showDebugRays && Application.isPlaying)
+			{
+				foreach (var ray in debugRays)
+				{
+					Gizmos.color = ray.hit ? Color.green : Color.red;
+					Gizmos.DrawLine(ray.start, ray.end);
+				}
 			}
 		}
 #endif

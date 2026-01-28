@@ -169,7 +169,6 @@ namespace RobotArm
 			// === Gripper State (3 values) ===
 			sensor.AddObservation(robotController.magnet.IsActive ? 1f : 0f);
 			sensor.AddObservation(robotController.IsHoldingObject() ? 1f : 0f);
-			sensor.AddObservation(robotController.magnet.CurrentContactPercentage);
 
 			// Total: 6 + 7 + 7 + 4 + 3 = 27 observations
 		}
