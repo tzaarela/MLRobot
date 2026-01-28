@@ -1,0 +1,160 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1 &6450325718716060874
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2190790676998758760}
+  m_Layer: 0
+  m_Name: Robot
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2190790676998758760
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6450325718716060874}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 1.172}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 9203331863179023815}
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1001 &8661113590489330220
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 2190790676998758760}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalRotation.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8348134394543994954, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Name
+      value: Welder_bolt
+      objectReference: {fileID: 0}
+    - target: {fileID: -7844980520611138515, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: -6384225772109115935, guid: 2bebe061f125a0b4fb8b5923b0db68a1,
+        type: 3}
+    - target: {fileID: -5766320716693086091, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Name
+      value: Welder
+      objectReference: {fileID: 0}
+    - target: {fileID: -3109934321698373722, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: -6384225772109115935, guid: 2bebe061f125a0b4fb8b5923b0db68a1,
+        type: 3}
+    - target: {fileID: -368421512775478643, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Name
+      value: Rig_Arm_7_Tool
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Name
+      value: Armature
+      objectReference: {fileID: 0}
+    - target: {fileID: 3528555677537347233, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: -6384225772109115935, guid: 2bebe061f125a0b4fb8b5923b0db68a1,
+        type: 3}
+    - target: {fileID: 5759930710290157428, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Name
+      value: Welder_cables
+      objectReference: {fileID: 0}
+    - target: {fileID: 6489917278395807690, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: -6384225772109115935, guid: 2bebe061f125a0b4fb8b5923b0db68a1,
+        type: 3}
+    - target: {fileID: 7644753866309081783, guid: 58274f91623b55a44898091af32db3e3,
+        type: 3}
+      propertyPath: m_Materials.Array.data[0]
+      value: 
+      objectReference: {fileID: -6384225772109115935, guid: 2bebe061f125a0b4fb8b5923b0db68a1,
+        type: 3}
+    m_RemovedComponents: []
+    m_RemovedGameObjects:
+    - {fileID: 65702495048144492, guid: 58274f91623b55a44898091af32db3e3, type: 3}
+    - {fileID: -8700617353114198275, guid: 58274f91623b55a44898091af32db3e3, type: 3}
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 58274f91623b55a44898091af32db3e3, type: 3}
+--- !u!4 &9203331863179023815 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: 58274f91623b55a44898091af32db3e3,
+    type: 3}
+  m_PrefabInstance: {fileID: 8661113590489330220}
+  m_PrefabAsset: {fileID: 0}
