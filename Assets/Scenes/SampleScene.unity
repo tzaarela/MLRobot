@@ -271,7 +271,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 29
+    VectorObservationSize: 30
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 6
@@ -4126,6 +4126,7 @@ MonoBehaviour:
   magneticPullSpeed: 10
   anchorPoint: {fileID: 660075408}
   pullCompleteThreshold: 0.01
+  pickupCooldown: 1
   pickupLayerMask:
     serializedVersion: 2
     m_Bits: 128

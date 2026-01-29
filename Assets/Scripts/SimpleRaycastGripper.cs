@@ -30,6 +30,12 @@ namespace RobotArm
 
 		public float pullCompleteThreshold = 0.002f;
 
+		[Header("Cooldown")]
+		[Tooltip("Seconds to wait after release before magnet can activate again")]
+		public float pickupCooldown = 1f;
+
+		private float nextAllowedPickupTime = 0f;
+
 		[Tooltip("Layer mask for objects that can be picked up")]
 		public LayerMask pickupLayerMask = ~0;
 
@@ -91,6 +97,7 @@ namespace RobotArm
 		//Magnetic Pull
 		private Coroutine magneticPullRoutine = null;
 		private bool pullComplete = false;
+		public bool CanActivateMagnet => Time.time >= nextAllowedPickupTime;
 
 		// Cached
 		private MaterialPropertyBlock propertyBlock;
@@ -152,7 +159,7 @@ namespace RobotArm
 		{
 			PerformRaycastScan();
 
-			if (isActive && !IsHoldingObject && detectedObject != null)
+			if (isActive && CanActivateMagnet && !IsHoldingObject && detectedObject != null)
 			{
 				// Start pull once
 				if (magneticPullRoutine == null)
@@ -239,7 +246,7 @@ namespace RobotArm
 
 						if (debugMagneticPull)
 							Debug.Log(
-								$"[MagneticPull] Pull complete for {obj.name} (distance {distance:F4})"
+								$"[MagneticPull] Pull complete for {obj.name}"
 							);
 
 						yield break;
@@ -435,9 +442,18 @@ namespace RobotArm
 		/// </summary>
 		public void SetActive(bool active)
 		{
+			// Trying to turn ON during cooldown → ignore
+			if (active && !CanActivateMagnet)
+			{
+				isActive = false;
+				UpdateVisuals();
+				return;
+			}
+
 			isActive = active;
 
-			if (!active && IsHoldingObject)
+			// Turning off always releases
+			if (!isActive && IsHoldingObject)
 			{
 				Release();
 			}
@@ -459,6 +475,15 @@ namespace RobotArm
 		/// </summary>
 		public void Release()
 		{
+			// Force magnet OFF
+			isActive = false;
+
+			// Start cooldown
+			nextAllowedPickupTime = Time.time + pickupCooldown;
+
+			// Stop magnetic pull if active
+			StopMagneticPull();
+
 			// Remove collision monitor
 			if (collisionMonitor != null)
 			{
@@ -468,13 +493,11 @@ namespace RobotArm
 
 			if (heldObject != null)
 			{
-				// Restore original parent
 				heldObject.transform.SetParent(originalParent, true);
 			}
 
 			if (heldRigidbody != null)
 			{
-				// Restore original kinematic state
 				heldRigidbody.isKinematic = false;
 				heldRigidbody.useGravity = true;
 				heldRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
@@ -483,13 +506,15 @@ namespace RobotArm
 
 			if (showDebugGizmos && heldObject != null)
 			{
-				Debug.Log($"[SimpleGripper] Released: {heldObject.name}");
+				Debug.Log($"[SimpleGripper] Released: {heldObject.name} (Cooldown started)");
 			}
 
 			heldObject = null;
 			originalParent = null;
+
 			UpdateVisuals();
 		}
+
 
 		private void UpdateVisuals()
 		{

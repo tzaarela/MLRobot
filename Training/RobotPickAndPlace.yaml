@@ -35,7 +35,7 @@ behaviors:
         learning_rate: 3.0e-4
     
     # Training settings
-    max_steps: 5000000
+    max_steps: 1000000
     time_horizon: 128
     summary_freq: 10000
     keep_checkpoints: 5

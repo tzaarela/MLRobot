@@ -122,7 +122,6 @@ namespace RobotArm
 			targetRigidbody.velocity = Vector3.zero;
 			targetRigidbody.angularVelocity = Vector3.zero;
 			targetObject.position = worldPos;
-			targetObject.rotation = initialObjectRotation;
 		}
 
 		public override void CollectObservations(VectorSensor sensor)
@@ -174,6 +173,8 @@ namespace RobotArm
 			// === Gripper State (3 values) ===
 			sensor.AddObservation(robotController.magnet.IsActive ? 1f : 0f);
 			sensor.AddObservation(robotController.IsHoldingObject() ? 1f : 0f);
+			sensor.AddObservation(robotController.magnet.CanActivateMagnet);
+
 
 			// Total: 6 + 7 + 7 + 4 + 3 = 27 observations
 		}
@@ -288,11 +289,13 @@ namespace RobotArm
 				// Check if dropped in goal zone
 				if (IsObjectInDropZone())
 				{
+					Debug.Log($"[Reward] Value: {successReward} | Dropped in goal zone!");
 					AddReward(successReward);
 					EndEpisode();
 				}
 				else
 				{
+					Debug.Log($"[Reward] Value: {dropPenalty} | Dropped object outside goal zone.");
 					AddReward(dropPenalty);
 				}
 			}
