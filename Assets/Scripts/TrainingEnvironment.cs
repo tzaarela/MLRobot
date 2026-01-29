@@ -23,9 +23,22 @@ namespace RobotArm
         public Color environmentColor = Color.green;
         
         private Renderer dropZoneRenderer;
+
+
+        public static TrainingEnvironment Instance;
         
         private void Awake()
         {
+
+            if (Instance == null)
+            {
+                Instance = this;
+            }
+            else
+            {
+                Destroy(gameObject);
+            }
+
             // Setup references if not assigned
             if (agent != null)
             {

@@ -55,6 +55,14 @@ namespace RobotArm
 		[Tooltip("Height below which object is considered fallen")]
 		public float objectFallThreshold = 0.05f;
 
+		[Header("Drop Zone Settings")]
+		[Tooltip("Check if object must be fully contained (true) or just center inside (false)")]
+		public bool requireFullContainment = true;
+
+		[Tooltip("Time (in seconds) the object must stay in drop zone before success")]
+		[Range(0f, 5f)]
+		public float dropZoneStayDuration = 1f;
+
 		[Header("Debug")]
 		public bool showDebugLogs = true;
 
@@ -67,6 +75,17 @@ namespace RobotArm
 		private bool hasPickedUp = false;
 		private bool wasHolding = false;
 		private int currentStep = 0;
+		private Vector3 dropZoneSize;
+
+		// Drop zone timer
+		private bool isTimerActive = false;
+		private float dropZoneTimer = 0f;
+		private bool hasDroppedInZone = false;
+
+		private void Awake()
+		{
+			dropZoneSize = dropOffZone.GetComponent<DropZoneVisualizer>().dropZoneSize;
+		}
 
 		public override void Initialize()
 		{
@@ -76,6 +95,7 @@ namespace RobotArm
 				initialObjectPosition = GetLocalPosition(targetObject.position);
 				initialObjectRotation = targetObject.rotation;
 			}
+
 		}
 
 		public override void OnEpisodeBegin()
@@ -83,6 +103,11 @@ namespace RobotArm
 			currentStep = 0;
 			hasPickedUp = false;
 			wasHolding = false;
+
+			// Reset drop zone timer
+			isTimerActive = false;
+			dropZoneTimer = 0f;
+			hasDroppedInZone = false;
 
 			// Reset robot
 			robotController.ResetToStartPosition();
@@ -151,7 +176,7 @@ namespace RobotArm
 			sensor.AddObservation(objectPos);
 
 			// Object Rotation
-			sensor.AddObservation(targetObject.up.y); // “is it upright?”
+			sensor.AddObservation(targetObject.up.y); // "is it upright?"
 
 			// Vector from tool to object
 			Vector3 toolToObject = targetObject.position - robotController.GetToolPosition();
@@ -224,7 +249,7 @@ namespace RobotArm
 				// Reward for getting closer to object
 				float approachDelta = previousDistanceToObject - currentDistToObject;
 
-				if (approachDelta > 0) 
+				if (approachDelta > 0)
 				{
 					AddReward(0.05f);
 				}
@@ -235,14 +260,14 @@ namespace RobotArm
 
 				if (previousDistanceToGoal > currentDistToGoal)
 				{
-					AddReward(-0.1f);      
+					AddReward(-0.1f);
 				}
 
 				// Bonus for good alignment (magnet facing down toward object)
 				float alignment = Vector3.Dot(robotController.GetMagnetFaceNormal(),
 					(targetObject.position - robotController.GetToolPosition()).normalized);
 
-				if (alignment > 0.8f) 
+				if (alignment > 0.8f)
 					AddReward(0.2f);
 				else if (alignment > 0.6f)
 					AddReward(0.1f);
@@ -252,7 +277,7 @@ namespace RobotArm
 				{
 					Vector3 toolPos = robotController.GetToolPosition();
 					Vector3 objPos = targetObject.position;
-					Debug.Log($"[Step {currentStep}] ToolPos: {toolPos}, ObjPos: {objPos}, Dist: {currentDistToObject:F3}, PrevDist: {previousDistanceToObject:F3}, Delta: {approachDelta:F4}");
+					//Debug.Log($"[Step {currentStep}] ToolPos: {toolPos}, ObjPos: {objPos}, Dist: {currentDistToObject:F3}, PrevDist: {previousDistanceToObject:F3}, Delta: {approachDelta:F4}");
 				}
 
 				float alignmentReward = robotController.magnet.RaysHitting * 0.05f;
@@ -289,17 +314,61 @@ namespace RobotArm
 				// Check if dropped in goal zone
 				if (IsObjectInDropZone())
 				{
-					Debug.Log($"[Reward] Value: {successReward} | Dropped in goal zone!");
-					AddReward(successReward);
-					EndEpisode();
+					if (showDebugLogs)
+					{
+						Debug.Log($"[Dropped in zone] Starting timer: {dropZoneStayDuration}s");
+					}
+					isTimerActive = true;
+					dropZoneTimer = 0f;
+					hasDroppedInZone = true;
 				}
 				else
 				{
-					Debug.Log($"[Reward] Value: {dropPenalty} | Dropped object outside goal zone.");
+					if (showDebugLogs)
+					{
+						Debug.Log($"[Reward] Value: {dropPenalty} | Dropped object outside goal zone.");
+					}
 					AddReward(dropPenalty);
 				}
 			}
 
+			// Drop zone timer logic
+			if (isTimerActive && hasDroppedInZone)
+			{
+				// Check if object is still in zone
+				if (IsObjectInDropZone())
+				{
+					dropZoneTimer += Time.fixedDeltaTime;
+
+					if (showDebugLogs && currentStep % 50 == 0)
+					{
+						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {dropZoneStayDuration:F2}s");
+					}
+
+					// Success! Object stayed in zone for required duration
+					if (dropZoneTimer >= dropZoneStayDuration)
+					{
+						if (showDebugLogs)
+						{
+							Debug.Log($"[SUCCESS!] Object stayed in zone for {dropZoneTimer:F2}s! Reward: {successReward}");
+						}
+						AddReward(successReward);
+						isTimerActive = false;
+						EndEpisode();
+					}
+				}
+				else
+				{
+					// Object left the zone - reset timer
+					if (showDebugLogs)
+					{
+						Debug.Log($"[Timer Reset] Object left drop zone after {dropZoneTimer:F2}s");
+					}
+					isTimerActive = false;
+					dropZoneTimer = 0f;
+					hasDroppedInZone = false;
+				}
+			}
 			// Update tracking
 			previousDistanceToObject = currentDistToObject;
 			previousDistanceToGoal = currentDistToGoal;
@@ -308,14 +377,6 @@ namespace RobotArm
 
 		private void CheckEpisodeEnd()
 		{
-			// Success: Object in drop zone and released
-			if (IsObjectInDropZone() && !robotController.IsHoldingObject() && hasPickedUp)
-			{
-				AddReward(successReward);
-				EndEpisode();
-				return;
-			}
-
 			// Failure: Object fell off table
 			//if (targetObject.position.y < objectFallThreshold)
 			//{
@@ -334,15 +395,84 @@ namespace RobotArm
 			}
 		}
 
-		private bool IsObjectInDropZone()
+		/// <summary>
+		/// Check if target object is fully contained within the drop zone bounds.
+		/// Supports both center-only and full-containment modes.
+		/// </summary>
+		public bool IsObjectInDropZone()
 		{
-			// Simple distance check - you could use a collider trigger instead
-			float horizontalDist = Vector3.Distance(
-				new Vector3(targetObject.position.x, 0, targetObject.position.z),
-				new Vector3(dropOffZone.position.x, 0, dropOffZone.position.z)
-			);
+			if (targetObject == null || dropOffZone == null) return false;
 
-			return horizontalDist < 0.15f; // Adjust based on your drop zone size
+			// Get drop zone bounds in world space
+			Bounds dropZoneBounds = new Bounds(dropOffZone.position, dropZoneSize);
+
+			if (requireFullContainment)
+			{
+				// Check if entire object bounds are contained within drop zone
+				Bounds objectBounds = GetObjectBounds(targetObject);
+
+				if (objectBounds.size == Vector3.zero)
+				{
+					// No renderer found, fall back to position check
+					return dropZoneBounds.Contains(targetObject.position);
+				}
+
+				// Check if all 8 corners of the object bounds are inside the drop zone
+				Vector3 min = objectBounds.min;
+				Vector3 max = objectBounds.max;
+
+				Vector3[] corners = new Vector3[8]
+				{
+					new Vector3(min.x, min.y, min.z),
+					new Vector3(min.x, min.y, max.z),
+					new Vector3(min.x, max.y, min.z),
+					new Vector3(min.x, max.y, max.z),
+					new Vector3(max.x, min.y, min.z),
+					new Vector3(max.x, min.y, max.z),
+					new Vector3(max.x, max.y, min.z),
+					new Vector3(max.x, max.y, max.z)
+				};
+
+				foreach (Vector3 corner in corners)
+				{
+					if (!dropZoneBounds.Contains(corner))
+					{
+						return false; // At least one corner is outside
+					}
+				}
+
+				return true; // All corners are inside
+			}
+			else
+			{
+				// Simple center-based check
+				return dropZoneBounds.Contains(targetObject.position);
+			}
+		}
+
+		/// <summary>
+		/// Get the world-space axis-aligned bounding box of an object.
+		/// Takes rotation into account by using Renderer.bounds.
+		/// </summary>
+		private Bounds GetObjectBounds(Transform obj)
+		{
+			// Try to get renderer (most accurate for rotated objects)
+			Renderer renderer = obj.GetComponent<Renderer>();
+			if (renderer != null)
+			{
+				return renderer.bounds; // World-space AABB
+			}
+
+			// Fallback: try collider
+			Collider collider = obj.GetComponent<Collider>();
+			if (collider != null)
+			{
+				return collider.bounds;
+			}
+
+			// Last resort: return zero-size bounds at object position
+			Debug.LogWarning($"No Renderer or Collider found on {obj.name} for bounds calculation");
+			return new Bounds(obj.position, Vector3.zero);
 		}
 
 		public override void Heuristic(in ActionBuffers actionsOut)
@@ -381,7 +511,7 @@ namespace RobotArm
 		}
 
 #if UNITY_EDITOR
-		private void OnDrawGizmosSelected()
+		private void OnDrawGizmos()
 		{
 			// Draw spawn area
 			if (environmentRoot != null)
@@ -392,11 +522,17 @@ namespace RobotArm
 				Gizmos.DrawWireCube(center, size);
 			}
 
-			// Draw drop zone
-			if (dropOffZone != null)
+			// Draw object bounds (in play mode)
+			if (Application.isPlaying && targetObject != null)
 			{
-				Gizmos.color = Color.green;
-				Gizmos.DrawWireSphere(dropOffZone.position, 0.15f);
+				Bounds objBounds = GetObjectBounds(targetObject);
+
+				if (objBounds.size != Vector3.zero)
+				{
+					bool isInZone = IsObjectInDropZone();
+					Gizmos.color = isInZone ? Color.cyan : Color.red;
+					Gizmos.DrawWireCube(objBounds.center, objBounds.size);
+				}
 			}
 		}
 #endif

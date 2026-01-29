@@ -318,7 +318,6 @@ namespace RobotArm
 			}
 		}
 
-
 		private void StopMagneticPull()
 		{
 			if (magneticPullRoutine != null)
@@ -606,7 +605,6 @@ namespace RobotArm
 			UpdateVisuals();
 		}
 
-
 		private void UpdateVisuals()
 		{
 			if (magnetRenderer == null) return;
@@ -634,6 +632,8 @@ namespace RobotArm
 			if (!preventPushThrough) return;
 			if (IsHoldingObject && collision.gameObject == heldObject) return;
 			if (magneticPullRoutine != null) return; // Ignore collisions during pull
+			if (!CanActivateMagnet) return; // Ignore during cooldown
+
 
 			if (logStateChanges)
 			{
