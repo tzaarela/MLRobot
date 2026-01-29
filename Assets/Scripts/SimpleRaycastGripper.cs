@@ -1,5 +1,6 @@
-using UnityEngine;
+using System.Collections;
 using System.Collections.Generic;
+using UnityEngine;
 
 namespace RobotArm
 {
@@ -9,12 +10,24 @@ namespace RobotArm
 	/// </summary>
 	public class SimpleRaycastGripper: MonoBehaviour
 	{
+
 		[Header("Magnet Settings")]
 		[Tooltip("Radius of the magnet disc face")]
 		public float magnetRadius = 0.05f;
 
 		[Tooltip("Maximum distance to raycast downward")]
 		public float raycastDistance = 0.02f;
+
+		[Header("Magnetic Pull")]
+		[Tooltip("Distance within which magnet starts pulling")]
+		public float magneticPullDistance = 0.05f;
+
+		[Tooltip("Interpolation speed toward magnet")]
+		public float magneticPullSpeed = 10f;
+
+		public Transform anchorPoint;
+
+		public float pullCompleteThreshold = 0.002f;
 
 		[Tooltip("Layer mask for objects that can be picked up")]
 		public LayerMask pickupLayerMask = ~0;
@@ -44,6 +57,7 @@ namespace RobotArm
 		[Header("Debug")]
 		public bool showDebugGizmos = true;
 		public bool showDebugRays = true;
+		public bool debugMagneticPull = true;
 
 		[Header("Collision Prevention")]
 		[Tooltip("Prevent magnet from pushing through objects")]
@@ -69,6 +83,11 @@ namespace RobotArm
 		private Vector3[] rayEndPoints = new Vector3[4];
 		private bool[] rayHits = new bool[4];
 		private bool isColliding = false;
+		private Vector3[] rayHitPoints = new Vector3[4];
+
+		//Magnetic Pull
+		private Coroutine magneticPullRoutine = null;
+		private bool pullComplete = false;
 
 		// Cached
 		private MaterialPropertyBlock propertyBlock;
@@ -128,20 +147,137 @@ namespace RobotArm
 
 		private void FixedUpdate()
 		{
-			// Scan for objects
 			PerformRaycastScan();
 
-			// Try to grab if active and have full contact
-			if (isActive && !IsHoldingObject && HasFullContact && detectedObject != null)
+			if (isActive && !IsHoldingObject && detectedObject != null)
 			{
-				TryGrabObject(detectedObject);
+				// Start pull once
+				if (magneticPullRoutine == null)
+				{
+					magneticPullRoutine = StartCoroutine(MagneticPullCoroutine(detectedObject));
+				}
+
+				// Only grab AFTER pull finishes
+				if (pullComplete && HasFullContact)
+				{
+					TryGrabObject(detectedObject);
+					StopMagneticPull();
+				}
 			}
 
-			// Maintain hold
 			if (IsHoldingObject)
 			{
 				MaintainHold();
 			}
+		}
+
+		private IEnumerator MagneticPullCoroutine(GameObject obj)
+		{
+			pullComplete = false;
+
+			Rigidbody rb = obj.GetComponent<Rigidbody>();
+			if (rb == null || rb.isKinematic)
+			{
+				if (debugMagneticPull)
+					Debug.LogWarning($"[MagneticPull] Abort: {obj.name} has no valid Rigidbody");
+
+				StopMagneticPull();
+				yield break;
+			}
+
+			if (debugMagneticPull)
+				Debug.Log($"[MagneticPull] Started pulling {obj.name}");
+
+			while (true)
+			{
+				// --- Abort conditions ---
+				if (!isActive)
+				{
+					if (debugMagneticPull)
+						Debug.Log($"[MagneticPull] Abort: Magnet deactivated");
+
+					StopMagneticPull();
+					yield break;
+				}
+
+				if (IsHoldingObject)
+				{
+					if (debugMagneticPull)
+						Debug.Log($"[MagneticPull] Abort: Already holding an object");
+
+					StopMagneticPull();
+					yield break;
+				}
+
+				if (detectedObject != obj)
+				{
+					if (debugMagneticPull)
+						Debug.Log($"[MagneticPull] Abort: Lost target ({obj.name})");
+
+					StopMagneticPull();
+					yield break;
+				}
+
+
+				// Get magnet face normal in world space
+				Vector3 magnetNormal = transform.TransformDirection(magnetFaceDirection).normalized;
+
+				// Raycast
+				RaycastHit hit;
+				if (Physics.Raycast(anchorPoint.position, magnetNormal, out hit, raycastDistance, pickupLayerMask))
+				{
+
+					float distance = Vector3.Distance(hit.point, anchorPoint.position);
+				
+					// --- Close enough → finish ---
+					if (distance <= pullCompleteThreshold)
+					{
+						pullComplete = true;
+
+						if (debugMagneticPull)
+							Debug.Log(
+								$"[MagneticPull] Pull complete for {obj.name} (distance {distance:F4})"
+							);
+
+						yield break;
+					}
+
+					// --- Move rigidbody (position) ---
+					Vector3 targetOffset = anchorPoint.position - hit.point;
+					Vector3 targetPosition = rb.position + targetOffset;
+					rb.MovePosition(targetPosition);
+
+					// --- Align object normal to magnet normal ---
+					Quaternion alignRotation = Quaternion.FromToRotation(
+						hit.normal,
+						-magnetNormal
+					);
+
+					Quaternion targetRotation = alignRotation * rb.rotation;
+
+					//Quaternion newRotation = Quaternion.Slerp(
+					//	rb.rotation,
+					//	targetRotation,
+					//	Time.fixedDeltaTime * magneticPullSpeed
+					//);
+
+					rb.MoveRotation(targetRotation);
+				}
+
+				yield return new WaitForFixedUpdate();
+			}
+		}
+
+
+		private void StopMagneticPull()
+		{
+			if (magneticPullRoutine != null)
+			{
+				StopCoroutine(magneticPullRoutine);
+				magneticPullRoutine = null;
+			}
+
+			pullComplete = false;
 		}
 
 		/// <summary>
@@ -194,6 +330,9 @@ namespace RobotArm
 				RaycastHit hit;
 				if (Physics.Raycast(rayStart, rayDir, out hit, rayDist, pickupLayerMask))
 				{
+
+
+
 					// Skip if wrong tag
 					if (!string.IsNullOrEmpty(pickupTag) && !hit.collider.CompareTag(pickupTag))
 						continue;
@@ -206,7 +345,8 @@ namespace RobotArm
 					// Valid hit!
 					rayHits[i] = true;
 					raysHitting++;
-
+					rayHitPoints[i] = hit.point;
+					 
 					// Track which object we hit
 					if (firstHitObject == null)
 					{
@@ -219,6 +359,8 @@ namespace RobotArm
 						continue;
 					}
 				}
+
+				rayHitPoints[i] = Vector3.zero;
 			}
 
 			// Only set detected object if all rays hit the SAME object
@@ -302,6 +444,7 @@ namespace RobotArm
 		/// <summary>
 		/// Toggle magnet state
 		/// </summary>
+		[ContextMenu("Toggle Magnet")]
 		public void Toggle()
 		{
 			SetActive(!isActive);
