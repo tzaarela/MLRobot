@@ -208,7 +208,7 @@ MonoBehaviour:
     initialLocalRotation: {x: 0, y: 0, z: 0, w: 0}
   - jointTransform: {fileID: 2668105278979274993}
     rotationAxis: {x: 0, y: 0, z: 1}
-    minAngle: -150
+    minAngle: -125
     maxAngle: 45
     rotationSpeed: 90
     startAngle: -80
@@ -239,7 +239,7 @@ MonoBehaviour:
     currentAngle: 0
     initialLocalRotation: {x: 0, y: 0, z: 0, w: 0}
   magnet: {fileID: 1935409284}
-  toolCenterPoint: {fileID: 0}
+  toolCenterPoint: {fileID: 660075408}
   useSmoothMovement: 1
   smoothingSpeed: 10
 --- !u!114 &101148585
@@ -271,7 +271,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 26
+    VectorObservationSize: 29
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 6
@@ -282,7 +282,7 @@ MonoBehaviour:
     hasUpgradedBrainParametersWithActionSpec: 1
   m_Model: {fileID: 0}
   m_InferenceDevice: 0
-  m_BehaviorType: 1
+  m_BehaviorType: 0
   m_BehaviorName: RobotPickAndPlace
   TeamId: 0
   m_UseChildSensors: 1
@@ -311,12 +311,12 @@ MonoBehaviour:
   objectSpawnAreaMin: {x: 0.82, y: 0.1, z: -0.35}
   objectSpawnAreaMax: {x: 1.59, y: 0.1, z: 0.62}
   successReward: 1
-  dropPenalty: -0.5
-  approachRewardScale: 0.01
-  pickupReward: 0.5
-  deliveryRewardScale: 0.02
+  dropPenalty: -0.8
+  approachRewardScale: 0.05
+  pickupReward: 0.9
+  deliveryRewardScale: 0.2
   stepPenalty: -0.0002
-  maxEpisodeSteps: 200000
+  maxEpisodeSteps: 500
   objectFallThreshold: 0.05
   showDebugLogs: 0
 --- !u!114 &101148588
@@ -364,6 +364,7 @@ Transform:
   m_Children:
   - {fileID: 373565441}
   - {fileID: 39829293}
+  - {fileID: 1196043965}
   m_Father: {fileID: 1978629291}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &330585543
@@ -983,6 +984,37 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &1196043964
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1196043965}
+  m_Layer: 0
+  m_Name: Target
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1196043965
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1196043964}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0.55, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 275692514}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!850595691 &1214230339
 LightingSettings:
@@ -4099,6 +4131,13 @@ MonoBehaviour:
     m_Bits: 128
   pickupTag: Pickup
   robotRoot: {fileID: 7989703180781460116}
+  robotColliders:
+  - {fileID: 7523900180810930788}
+  - {fileID: 6657270155909133943}
+  - {fileID: 8757355032444548222}
+  - {fileID: 6371529038612806567}
+  - {fileID: 1881605769}
+  - {fileID: 8248981765118762211}
   magnetFaceDirection: {x: 0, y: 1, z: 0}
   magnetRenderer: {fileID: 1935409279}
   inactiveColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}

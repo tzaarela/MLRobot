@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Unity.MLAgents;
 using UnityEngine;
 
 namespace RobotArm
@@ -37,6 +38,8 @@ namespace RobotArm
 
 		[Tooltip("Root transform of the robot (to exclude from detection)")]
 		public Transform robotRoot;
+
+		public List<Collider> robotColliders;
 
 		[Tooltip("Local direction the magnet face points (usually down: 0,-1,0)")]
 		public Vector3 magnetFaceDirection = Vector3.down;
@@ -405,6 +408,7 @@ namespace RobotArm
 			collisionMonitor = obj.AddComponent<CollisionReleaseMonitor>();
 			collisionMonitor.gripper = this;
 			collisionMonitor.magnetTransform = transform;
+			collisionMonitor.robotColliders = robotColliders;
 
 			UpdateVisuals();
 
@@ -616,6 +620,34 @@ namespace RobotArm
 	{
 		public SimpleRaycastGripper gripper;
 		public Transform magnetTransform;
+		public List<Collider> robotColliders;
+
+		private void Update()
+		{
+			Collider objectCollidder = this.GetComponent<Collider>();
+
+			if (robotColliders != null)
+			{
+				foreach (var col in robotColliders)
+				{
+					if (col == objectCollidder)
+						continue;
+
+					bool intersecting = Physics.ComputePenetration(
+						objectCollidder, objectCollidder.transform.position, objectCollidder.transform.rotation,
+						col, col.transform.position, col.transform.rotation,
+						out _, out _
+					);
+
+					if (intersecting)
+					{
+						Debug.Log($"Intersecting with {col.name}");
+						gripper.Release();
+						break;
+					}
+				}
+			}
+		}
 
 		private void OnCollisionEnter(Collision collision)
 		{

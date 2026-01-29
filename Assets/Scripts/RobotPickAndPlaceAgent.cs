@@ -57,7 +57,6 @@ namespace RobotArm
 
 		[Header("Debug")]
 		public bool showDebugLogs = true;
-		private float episodeReward = 0f;
 
 		// State tracking
 		private Rigidbody targetRigidbody;
@@ -84,7 +83,6 @@ namespace RobotArm
 			currentStep = 0;
 			hasPickedUp = false;
 			wasHolding = false;
-			episodeReward = 0f;
 
 			// Reset robot
 			robotController.ResetToStartPosition();
@@ -114,6 +112,9 @@ namespace RobotArm
 				Random.Range(objectSpawnAreaMin.z, objectSpawnAreaMax.z)
 			);
 
+			// Randomize y-rotation of object
+			targetObject.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+
 			// Convert to world position relative to environment root
 			Vector3 worldPos = GetWorldPosition(randomLocalPos);
 
@@ -139,15 +140,19 @@ namespace RobotArm
 			sensor.AddObservation(toolPos);
 
 			// Tool orientation (as forward and up vectors for stability)
-			Vector3 toolForward = robotController.GetToolRotation() * Vector3.forward;
 			Vector3 toolUp = robotController.GetMagnetFaceNormal();
-			sensor.AddObservation(toolForward);
-			sensor.AddObservation(toolUp.y); // Just the vertical component of magnet normal
+			sensor.AddObservation(toolUp);
+
+			//vector between drop off and magnet
+			sensor.AddObservation(dropOffZone.position - toolPos);
 
 			// === Target Object State (7 values) ===
 			// Object position
 			Vector3 objectPos = GetLocalPosition(targetObject.position);
 			sensor.AddObservation(objectPos);
+
+			// Object Rotation
+			sensor.AddObservation(targetObject.up.y); // “is it upright?”
 
 			// Vector from tool to object
 			Vector3 toolToObject = targetObject.position - robotController.GetToolPosition();
@@ -206,7 +211,6 @@ namespace RobotArm
 		{
 			// Step penalty for efficiency
 			AddReward(stepPenalty);
-			episodeReward += stepPenalty;
 
 			float currentDistToObject = Vector3.Distance(robotController.GetToolPosition(), targetObject.position);
 			float currentDistToGoal = Vector3.Distance(targetObject.position, dropOffZone.position);
@@ -214,22 +218,33 @@ namespace RobotArm
 			bool isHolding = robotController.IsHoldingObject();
 
 			// Phase 1: Approaching object (when not holding)
-			if (!isHolding && !hasPickedUp)
+			if (!isHolding)
 			{
 				// Reward for getting closer to object
 				float approachDelta = previousDistanceToObject - currentDistToObject;
-				float approachReward = approachDelta * approachRewardScale;
-				AddReward(approachReward);
-				episodeReward += approachReward;
+
+				if (approachDelta > 0) 
+				{
+					AddReward(0.05f);
+				}
+				else
+				{
+					AddReward(-0.55f);
+				}
+
+				if (previousDistanceToGoal > currentDistToGoal)
+				{
+					AddReward(-0.1f);      
+				}
 
 				// Bonus for good alignment (magnet facing down toward object)
-				float alignment = Vector3.Dot(-robotController.GetMagnetFaceNormal(),
+				float alignment = Vector3.Dot(robotController.GetMagnetFaceNormal(),
 					(targetObject.position - robotController.GetToolPosition()).normalized);
-				if (alignment > 0.8f && currentDistToObject < 0.2f)
-				{
-					AddReward(0.001f);
-					episodeReward += 0.001f;
-				}
+
+				if (alignment > 0.8f) 
+					AddReward(0.2f);
+				else if (alignment > 0.6f)
+					AddReward(0.1f);
 
 				// Debug logging every 100 steps
 				if (showDebugLogs && currentStep % 100 == 0)
@@ -238,25 +253,33 @@ namespace RobotArm
 					Vector3 objPos = targetObject.position;
 					Debug.Log($"[Step {currentStep}] ToolPos: {toolPos}, ObjPos: {objPos}, Dist: {currentDistToObject:F3}, PrevDist: {previousDistanceToObject:F3}, Delta: {approachDelta:F4}");
 				}
+
+				float alignmentReward = robotController.magnet.RaysHitting * 0.05f;
+				AddReward(alignmentReward);
 			}
 
 			// Pickup reward (one-time)
 			if (isHolding && !wasHolding)
 			{
 				AddReward(pickupReward);
-				episodeReward += pickupReward;
 				hasPickedUp = true;
-				if (showDebugLogs) Debug.Log($"[PICKUP!] Episode reward: {episodeReward:F4}");
 			}
 
 			// Phase 2: Delivering object (when holding)
 			if (isHolding)
 			{
+				AddReward(0.5f);
 				// Reward for bringing object closer to goal
 				float deliveryDelta = previousDistanceToGoal - currentDistToGoal;
-				float deliveryReward = deliveryDelta * deliveryRewardScale;
-				AddReward(deliveryReward);
-				episodeReward += deliveryReward;
+
+				if (deliveryDelta > 0)
+				{
+					AddReward(0.5f);
+				}
+				else
+				{
+					AddReward(-0.55f);
+				}
 			}
 
 			// Dropped object after picking up
@@ -266,15 +289,11 @@ namespace RobotArm
 				if (IsObjectInDropZone())
 				{
 					AddReward(successReward);
-					episodeReward += successReward;
-					if (showDebugLogs) Debug.Log($"[SUCCESS!] Final reward: {episodeReward:F4}");
 					EndEpisode();
 				}
 				else
 				{
 					AddReward(dropPenalty);
-					episodeReward += dropPenalty;
-					if (showDebugLogs) Debug.Log($"[DROPPED] Episode reward: {episodeReward:F4}");
 				}
 			}
 
