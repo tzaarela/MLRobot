@@ -63,10 +63,19 @@ namespace RobotArm
 		[Tooltip("Color when holding an object")]
 		public Color holdingColor = Color.green;
 
-		[Header("Debug")]
+		[Header("Debug Logging")]
 		public bool showDebugGizmos = true;
 		public bool showDebugRays = true;
 		public bool debugMagneticPull = true;
+
+		[Tooltip("Log state transitions (activate, grab, release)")]
+		public bool logStateChanges = true;
+
+		[Tooltip("Log collision monitor events")]
+		public bool logCollisionMonitor = true;
+
+		[Tooltip("Log cooldown status")]
+		public bool logCooldown = true;
 
 		[Header("Collision Prevention")]
 		[Tooltip("Prevent magnet from pushing through objects")]
@@ -103,6 +112,10 @@ namespace RobotArm
 		private MaterialPropertyBlock propertyBlock;
 		private Rigidbody magnetRigidbody;
 		private static readonly int ColorProperty = Shader.PropertyToID("_BaseColor");
+
+		// Debug tracking
+		private int frameCount = 0;
+		private GameObject lastDetectedObject = null;
 
 		/// <summary>
 		/// Is the magnet currently activated?
@@ -152,27 +165,48 @@ namespace RobotArm
 				magnetRigidbody.useGravity = false;
 			}
 
+			if (logStateChanges)
+			{
+				Debug.Log($"[Magnet-{gameObject.name}] Initialized | MagnetRadius={magnetRadius}, RaycastDist={raycastDistance}, Cooldown={pickupCooldown}s");
+			}
+
 			UpdateVisuals();
 		}
 
 		private void FixedUpdate()
 		{
+			frameCount++;
+
 			PerformRaycastScan();
+
 
 			if (isActive && CanActivateMagnet && !IsHoldingObject && detectedObject != null)
 			{
 				// Start pull once
 				if (magneticPullRoutine == null)
 				{
+					if (debugMagneticPull)
+					{
+						Debug.Log($"[Magnet-{gameObject.name}] Starting magnetic pull on {detectedObject.name} | Rays={raysHitting}/4");
+					}
 					magneticPullRoutine = StartCoroutine(MagneticPullCoroutine(detectedObject));
 				}
 
 				// Only grab AFTER pull finishes
 				if (pullComplete && HasFullContact)
 				{
+					if (logStateChanges)
+					{
+						Debug.Log($"[Magnet-{gameObject.name}] Pull complete! Attempting grab | Rays={raysHitting}/4");
+					}
 					TryGrabObject(detectedObject);
 					StopMagneticPull();
 				}
+			}
+			else if (isActive && !CanActivateMagnet && logCooldown && frameCount % 60 == 0)
+			{
+				float timeRemaining = nextAllowedPickupTime - Time.time;
+				Debug.Log($"[Magnet-{gameObject.name}] In cooldown | Time remaining: {timeRemaining:F2}s");
 			}
 
 			if (IsHoldingObject)
@@ -189,22 +223,25 @@ namespace RobotArm
 			if (rb == null || rb.isKinematic)
 			{
 				if (debugMagneticPull)
-					Debug.LogWarning($"[MagneticPull] Abort: {obj.name} has no valid Rigidbody");
+					Debug.LogWarning($"[MagneticPull-{gameObject.name}] ABORT: {obj.name} has no valid Rigidbody (isKinematic={rb?.isKinematic})");
 
 				StopMagneticPull();
 				yield break;
 			}
 
 			if (debugMagneticPull)
-				Debug.Log($"[MagneticPull] Started pulling {obj.name}");
+				Debug.Log($"[MagneticPull-{gameObject.name}] Started pulling {obj.name} | InitialPos={obj.transform.position}");
 
+			int pullIterations = 0;
 			while (true)
 			{
+				pullIterations++;
+
 				// --- Abort conditions ---
 				if (!isActive)
 				{
 					if (debugMagneticPull)
-						Debug.Log($"[MagneticPull] Abort: Magnet deactivated");
+						Debug.Log($"[MagneticPull-{gameObject.name}] ABORT: Magnet deactivated after {pullIterations} iterations");
 
 					StopMagneticPull();
 					yield break;
@@ -213,7 +250,7 @@ namespace RobotArm
 				if (IsHoldingObject)
 				{
 					if (debugMagneticPull)
-						Debug.Log($"[MagneticPull] Abort: Already holding an object");
+						Debug.Log($"[MagneticPull-{gameObject.name}] ABORT: Already holding an object after {pullIterations} iterations");
 
 					StopMagneticPull();
 					yield break;
@@ -222,7 +259,7 @@ namespace RobotArm
 				if (detectedObject != obj)
 				{
 					if (debugMagneticPull)
-						Debug.Log($"[MagneticPull] Abort: Lost target ({obj.name})");
+						Debug.Log($"[MagneticPull-{gameObject.name}] ABORT: Lost target ({obj.name}) after {pullIterations} iterations");
 
 					StopMagneticPull();
 					yield break;
@@ -236,20 +273,23 @@ namespace RobotArm
 				RaycastHit hit;
 				if (Physics.Raycast(anchorPoint.position, magnetNormal, out hit, raycastDistance, pickupLayerMask))
 				{
-
 					float distance = Vector3.Distance(hit.point, anchorPoint.position);
-				
+
 					// --- Close enough → finish ---
 					if (distance <= pullCompleteThreshold)
 					{
 						pullComplete = true;
 
 						if (debugMagneticPull)
-							Debug.Log(
-								$"[MagneticPull] Pull complete for {obj.name}"
-							);
+							Debug.Log($"[MagneticPull-{gameObject.name}] ✓ Pull COMPLETE for {obj.name} after {pullIterations} iterations | FinalDistance={distance:F5}");
 
 						yield break;
+					}
+
+					// Log pull progress every 10 iterations
+					if (debugMagneticPull && pullIterations % 10 == 0)
+					{
+						Debug.Log($"[MagneticPull-{gameObject.name}] Pulling {obj.name} | Iteration={pullIterations}, Distance={distance:F5}, Threshold={pullCompleteThreshold:F5}");
 					}
 
 					// --- Move rigidbody (position) ---
@@ -264,14 +304,14 @@ namespace RobotArm
 					);
 
 					Quaternion targetRotation = alignRotation * rb.rotation;
-
-					//Quaternion newRotation = Quaternion.Slerp(
-					//	rb.rotation,
-					//	targetRotation,
-					//	Time.fixedDeltaTime * magneticPullSpeed
-					//);
-
 					rb.MoveRotation(targetRotation);
+				}
+				else
+				{
+					if (debugMagneticPull && pullIterations % 30 == 0)
+					{
+						Debug.LogWarning($"[MagneticPull-{gameObject.name}] Raycast MISS during pull | Iteration={pullIterations}");
+					}
 				}
 
 				yield return new WaitForFixedUpdate();
@@ -283,6 +323,10 @@ namespace RobotArm
 		{
 			if (magneticPullRoutine != null)
 			{
+				if (debugMagneticPull)
+				{
+					Debug.Log($"[MagneticPull-{gameObject.name}] Stopping magnetic pull coroutine");
+				}
 				StopCoroutine(magneticPullRoutine);
 				magneticPullRoutine = null;
 			}
@@ -304,6 +348,7 @@ namespace RobotArm
 			}
 
 			raysHitting = 0;
+			GameObject previousDetectedObject = detectedObject;
 			detectedObject = null;
 
 			// Get magnet face normal in world space
@@ -312,19 +357,20 @@ namespace RobotArm
 
 			// Calculate 4 corner positions on the disc edge
 			// Positions at 0°, 90°, 180°, 270° around the disc
-			Vector3 right = transform.right;
+			Vector3 up = transform.up;
 			Vector3 forward = transform.forward;
 
 			Vector3[] corners = new Vector3[4]
 			{
-				magnetCenter + right * magnetRadius,      // 0° (right)
+				magnetCenter + up * magnetRadius,      // 0° (right)
 				magnetCenter + forward * magnetRadius,    // 90° (forward)
-				magnetCenter - right * magnetRadius,      // 180° (left)
+				magnetCenter - up * magnetRadius,      // 180° (left)
 				magnetCenter - forward * magnetRadius     // 270° (back)
 			};
 
 			// Cast rays from each corner
 			GameObject firstHitObject = null;
+			List<string> hitObjects = new List<string>();
 
 			for (int i = 0; i < 4; i++)
 			{
@@ -335,28 +381,31 @@ namespace RobotArm
 				rayStartPoints[i] = rayStart;
 				rayEndPoints[i] = rayStart + rayDir * rayDist;
 				rayHits[i] = false;
+				rayHitPoints[i] = Vector3.zero;
 
 				// Raycast
 				RaycastHit hit;
 				if (Physics.Raycast(rayStart, rayDir, out hit, rayDist, pickupLayerMask))
 				{
-
-
-
 					// Skip if wrong tag
 					if (!string.IsNullOrEmpty(pickupTag) && !hit.collider.CompareTag(pickupTag))
+					{
 						continue;
+					}
 
 					// Skip if part of robot
 					Transform rootToCheck = robotRoot != null ? robotRoot : transform.root;
 					if (hit.collider.transform.IsChildOf(rootToCheck))
+					{
 						continue;
+					}
 
 					// Valid hit!
 					rayHits[i] = true;
 					raysHitting++;
 					rayHitPoints[i] = hit.point;
-					 
+					hitObjects.Add($"{hit.collider.name}(dist:{hit.distance:F4})");
+
 					// Track which object we hit
 					if (firstHitObject == null)
 					{
@@ -364,8 +413,6 @@ namespace RobotArm
 					}
 					else if (hit.collider.gameObject != firstHitObject)
 					{
-						// Different objects on different rays - not valid for gripping
-						// Keep counting but don't set detected object
 						continue;
 					}
 				}
@@ -377,11 +424,25 @@ namespace RobotArm
 			if (raysHitting == 4 && firstHitObject != null)
 			{
 				detectedObject = firstHitObject;
+
+				// Log when we first detect a new object
+				if (detectedObject != previousDetectedObject && logStateChanges)
+				{
+					Debug.Log($"[Magnet-{gameObject.name}] ✓ NEW DETECTION: {detectedObject.name} | All 4 rays hit | Hits: {string.Join(", ", hitObjects)}");
+				}
 			}
 			else
 			{
 				detectedObject = null;
+
+				// Log when we lose detection
+				if (previousDetectedObject != null && logStateChanges)
+				{
+					Debug.Log($"[Magnet-{gameObject.name}] ✗ LOST DETECTION: {previousDetectedObject.name} | Rays={raysHitting}/4");
+				}
 			}
+
+			lastDetectedObject = detectedObject;
 		}
 
 		/// <summary>
@@ -396,7 +457,11 @@ namespace RobotArm
 				rb = obj.GetComponentInParent<Rigidbody>();
 			}
 
-			if (rb == null) return;
+			if (rb == null)
+			{
+				Debug.LogError($"[Magnet-{gameObject.name}] GRAB FAILED: {obj.name} has no Rigidbody!");
+				return;
+			}
 
 			// Grab the object
 			heldObject = obj;
@@ -414,14 +479,14 @@ namespace RobotArm
 			// Add collision monitor to auto-release on collision
 			collisionMonitor = obj.AddComponent<CollisionReleaseMonitor>();
 			collisionMonitor.gripper = this;
-			collisionMonitor.magnetTransform = transform;
-			collisionMonitor.robotColliders = robotColliders;
+			collisionMonitor.collidersToAvoid = robotColliders;
+			collisionMonitor.logEvents = logCollisionMonitor;
 
 			UpdateVisuals();
 
-			if (showDebugGizmos)
+			if (logStateChanges)
 			{
-				Debug.Log($"[SimpleGripper] Grabbed: {obj.name}");
+				Debug.Log($"[Magnet-{gameObject.name}] ✓ GRABBED: {obj.name} | Parented to magnet, made kinematic");
 			}
 		}
 
@@ -433,6 +498,10 @@ namespace RobotArm
 			// Check if object still exists
 			if (heldObject == null || heldRigidbody == null)
 			{
+				if (logStateChanges)
+				{
+					Debug.LogWarning($"[Magnet-{gameObject.name}] Held object destroyed! Auto-releasing.");
+				}
 				Release();
 			}
 		}
@@ -445,12 +514,24 @@ namespace RobotArm
 			// Trying to turn ON during cooldown → ignore
 			if (active && !CanActivateMagnet)
 			{
+				if (logCooldown)
+				{
+					float timeRemaining = nextAllowedPickupTime - Time.time;
+					Debug.LogWarning($"[Magnet-{gameObject.name}] Cannot activate - in cooldown! Time remaining: {timeRemaining:F2}s");
+				}
 				isActive = false;
 				UpdateVisuals();
 				return;
 			}
 
+			bool wasActive = isActive;
 			isActive = active;
+
+			// Log state change
+			if (wasActive != isActive && logStateChanges)
+			{
+				Debug.Log($"[Magnet-{gameObject.name}] Magnet {(isActive ? "ACTIVATED" : "DEACTIVATED")} | Holding={IsHoldingObject}");
+			}
 
 			// Turning off always releases
 			if (!isActive && IsHoldingObject)
@@ -475,11 +556,22 @@ namespace RobotArm
 		/// </summary>
 		public void Release()
 		{
+			if (logStateChanges)
+			{
+				string objName = heldObject != null ? heldObject.name : "NULL";
+				Debug.Log($"[Magnet-{gameObject.name}] RELEASING: {objName} | Starting {pickupCooldown}s cooldown");
+			}
+
 			// Force magnet OFF
 			isActive = false;
 
 			// Start cooldown
 			nextAllowedPickupTime = Time.time + pickupCooldown;
+
+			if (logCooldown)
+			{
+				Debug.Log($"[Magnet-{gameObject.name}] Cooldown started | Can activate again at t={nextAllowedPickupTime:F2} (current t={Time.time:F2})");
+			}
 
 			// Stop magnetic pull if active
 			StopMagneticPull();
@@ -487,6 +579,10 @@ namespace RobotArm
 			// Remove collision monitor
 			if (collisionMonitor != null)
 			{
+				if (logCollisionMonitor)
+				{
+					Debug.Log($"[Magnet-{gameObject.name}] Destroying collision monitor on {heldObject?.name}");
+				}
 				Destroy(collisionMonitor);
 				collisionMonitor = null;
 			}
@@ -502,11 +598,6 @@ namespace RobotArm
 				heldRigidbody.useGravity = true;
 				heldRigidbody.interpolation = RigidbodyInterpolation.Interpolate;
 				heldRigidbody = null;
-			}
-
-			if (showDebugGizmos && heldObject != null)
-			{
-				Debug.Log($"[SimpleGripper] Released: {heldObject.name} (Cooldown started)");
 			}
 
 			heldObject = null;
@@ -542,6 +633,12 @@ namespace RobotArm
 		{
 			if (!preventPushThrough) return;
 			if (IsHoldingObject && collision.gameObject == heldObject) return;
+			if (magneticPullRoutine != null) return; // Ignore collisions during pull
+
+			if (logStateChanges)
+			{
+				Debug.Log($"[Magnet-{gameObject.name}] OnCollisionEnter with {collision.gameObject.name}");
+			}
 
 			// Apply force to the object we're colliding with
 			if (pushForceOnEnter > 0f)
@@ -561,6 +658,7 @@ namespace RobotArm
 		{
 			if (!preventPushThrough) return;
 			if (IsHoldingObject && collision.gameObject == heldObject) return;
+			if (magneticPullRoutine != null) return;
 
 			// Apply continuous force if enabled (set to 0 to disable)
 			if (pushForceOnStay > 0f)
@@ -578,6 +676,10 @@ namespace RobotArm
 
 		private void OnCollisionExit(Collision collision)
 		{
+			if (logStateChanges)
+			{
+				Debug.Log($"[Magnet-{gameObject.name}] OnCollisionExit with {collision.gameObject.name}");
+			}
 			isColliding = false;
 		}
 
@@ -614,9 +716,6 @@ namespace RobotArm
 				{
 					Gizmos.color = rayHits[i] ? Color.green : Color.red;
 					Gizmos.DrawLine(rayStartPoints[i], rayEndPoints[i]);
-
-					// Draw sphere at ray start
-					Gizmos.DrawWireSphere(rayStartPoints[i], 0.005f);
 				}
 			}
 
@@ -644,52 +743,157 @@ namespace RobotArm
 	internal class CollisionReleaseMonitor: MonoBehaviour
 	{
 		public SimpleRaycastGripper gripper;
-		public Transform magnetTransform;
-		public List<Collider> robotColliders;
+		public List<Collider> collidersToAvoid;
+		public bool logEvents = true;
+
+		private float pickupTime;
+		private float pickupHeight;
+
+		[Tooltip("Grace period after pickup")]
+		public float pickupGracePeriod = 0.2f;
+
+		[Tooltip("Height object must be lifted before collision detection")]
+		public float minLiftHeight = 0.03f;
+
+		[Header("Monitoring (Read-Only)")]
+		[Tooltip("Log collision detection status every N frames (0 = disabled)")]
+		public int monitorLogInterval = 10;
+
+		private int monitorFrameCount = 0;
+
+		// Public properties for monitoring
+		public bool GracePeriodPassed => Time.time - pickupTime >= pickupGracePeriod;
+		public bool HasBeenLifted => transform.position.y >= pickupHeight + minLiftHeight;
+		public bool IsCollisionDetectionActive => GracePeriodPassed && HasBeenLifted;
+
+		// Additional monitoring info
+		public float TimeSincePickup => Time.time - pickupTime;
+		public float CurrentHeight => transform.position.y;
+		public float HeightAbovePickup => transform.position.y - pickupHeight;
+
+		private void Awake()
+		{
+			pickupTime = Time.time;
+			pickupHeight = transform.position.y;
+
+			if (logEvents)
+			{
+				Debug.Log($"[CollisionMonitor-{gameObject.name}] Created | PickupTime={pickupTime:F2}, PickupHeight={pickupHeight:F3}, GracePeriod={pickupGracePeriod}s, MinLift={minLiftHeight:F3}");
+			}
+		}
 
 		private void Update()
 		{
-			Collider objectCollidder = this.GetComponent<Collider>();
+			monitorFrameCount++;
 
-			if (robotColliders != null)
+			// Log monitoring status periodically
+			if (logEvents && monitorLogInterval > 0 && monitorFrameCount % monitorLogInterval == 0)
 			{
-				foreach (var col in robotColliders)
+				Debug.Log($"[CollisionMonitor-{gameObject.name}] Status | " +
+					$"IsActive={IsCollisionDetectionActive}, " +
+					$"GracePassed={GracePeriodPassed} ({TimeSincePickup:F2}s/{pickupGracePeriod:F2}s), " +
+					$"Lifted={HasBeenLifted} ({HeightAbovePickup:F4}m/{minLiftHeight:F3}m), " +
+					$"CurHeight={CurrentHeight:F3}");
+			}
+
+			if (!IsCollisionDetectionActive)
+			{
+				// Log why we're not active (only occasionally to avoid spam)
+				if (logEvents && monitorLogInterval > 0 && monitorFrameCount % (monitorLogInterval * 3) == 0)
 				{
-					if (col == objectCollidder)
+					string reason = "";
+					if (!GracePeriodPassed) reason += $"Waiting for grace period ({pickupGracePeriod - TimeSincePickup:F2}s remaining)";
+					if (!HasBeenLifted)
+					{
+						if (reason.Length > 0) reason += ", ";
+						reason += $"Not lifted enough ({minLiftHeight - HeightAbovePickup:F4}m more needed)";
+					}
+					Debug.Log($"[CollisionMonitor-{gameObject.name}] Collision detection INACTIVE: {reason}");
+				}
+				return;
+			}
+
+			pickupHeight = -10; // Disable further height checks after activation
+
+			Collider objectCollider = GetComponent<Collider>();
+			if (collidersToAvoid != null && objectCollider != null)
+			{
+				foreach (var col in collidersToAvoid)
+				{
+					if (col == objectCollider)
 						continue;
 
-					bool intersecting = Physics.ComputePenetration(
-						objectCollidder, objectCollidder.transform.position, objectCollidder.transform.rotation,
+					if (logEvents && monitorLogInterval > 0 && monitorFrameCount % (monitorLogInterval * 3) == 0)
+					{ 
+						Debug.Log($"[CollisionMonitor-{gameObject.name}] Checking penetration against {col.name}");
+					}
+
+						bool intersecting = Physics.ComputePenetration(
+						objectCollider, objectCollider.transform.position, objectCollider.transform.rotation,
 						col, col.transform.position, col.transform.rotation,
-						out _, out _
+						out Vector3 direction, out float distance
 					);
 
 					if (intersecting)
 					{
-						Debug.Log($"Intersecting with {col.name}");
-						gripper.Release();
+						Debug.Log($"[CollisionMonitor-{gameObject.name} | Intersecting");
+
+						if (logEvents)
+						{
+							Debug.LogWarning($"[CollisionMonitor-{gameObject.name}] ⚠ PENETRATION with {col.name} | Distance={distance:F4}, Direction={direction} - RELEASING!");
+						}
+
+						if (gripper != null)
+						{
+							gripper.Release();
+						}
+						else 
+						{ 
+							Debug.LogError($"[CollisionMonitor-{gameObject.name}] No gripper reference to release!");
+						}
 						break;
 					}
 				}
 			}
 		}
 
-		private void OnCollisionEnter(Collision collision)
+		private void OnDestroy()
 		{
-			// Ignore collisions with the magnet itself
-			if (collision.transform == magnetTransform || collision.transform.IsChildOf(magnetTransform))
-				return;
-
-			// Collision with something else - auto release!
-			if (gripper != null && gripper.showDebugGizmos)
+			if (logEvents)
 			{
-				Debug.Log($"[SimpleGripper] Held object collided with {collision.gameObject.name} - Auto releasing!");
-			}
-
-			if (gripper != null)
-			{
-				gripper.Release();
+				Debug.Log($"[CollisionMonitor-{gameObject.name}] Destroyed | FinalHeight={CurrentHeight:F3}, TotalLift={HeightAbovePickup:F3}, Duration={TimeSincePickup:F2}s");
 			}
 		}
+
+		// Optional: Display in Scene view
+#if UNITY_EDITOR
+		private void OnDrawGizmos()
+		{
+			if (!Application.isPlaying) return;
+
+			// Draw pickup height line
+			Gizmos.color = Color.yellow;
+			Vector3 pos = transform.position;
+			Vector3 pickupPos = new Vector3(pos.x, pickupHeight, pos.z);
+			Gizmos.DrawLine(pickupPos - Vector3.right * 0.1f, pickupPos + Vector3.right * 0.1f);
+			Gizmos.DrawLine(pickupPos - Vector3.forward * 0.1f, pickupPos + Vector3.forward * 0.1f);
+
+			// Draw minimum lift height line
+			Gizmos.color = HasBeenLifted ? Color.green : Color.red;
+			Vector3 minLiftPos = new Vector3(pos.x, pickupHeight + minLiftHeight, pos.z);
+			Gizmos.DrawLine(minLiftPos - Vector3.right * 0.15f, minLiftPos + Vector3.right * 0.15f);
+			Gizmos.DrawLine(minLiftPos - Vector3.forward * 0.15f, minLiftPos + Vector3.forward * 0.15f);
+
+			// Draw current position
+			Gizmos.color = IsCollisionDetectionActive ? Color.green : Color.yellow;
+			Gizmos.DrawWireSphere(pos, 0.05f);
+
+			// Draw label
+			UnityEditor.Handles.Label(pos + Vector3.up * 0.15f,
+				$"Monitor: {(IsCollisionDetectionActive ? "ACTIVE" : "INACTIVE")}\n" +
+				$"Grace: {(GracePeriodPassed ? "✓" : "✗")} ({TimeSincePickup:F2}s)\n" +
+				$"Lifted: {(HasBeenLifted ? "✓" : "✗")} ({HeightAbovePickup:F4}m)");
+		}
+#endif
 	}
 }

@@ -219,10 +219,10 @@ namespace RobotArm
 		public Vector3 GetMagnetFaceNormal()
 		{
 			if (magnet != null)
-				return magnet.transform.up;
+				return magnet.transform.right;
 			if (toolCenterPoint != null)
-				return toolCenterPoint.up;
-			return Vector3.up;
+				return toolCenterPoint.right;
+			return Vector3.right;
 		}
 
 		/// <summary>
@@ -344,12 +344,8 @@ namespace RobotArm
 				Gizmos.DrawRay(joint.jointTransform.position, worldAxis * 0.2f);
 			}
 
-			// Draw tool position
-			Vector3 toolPos = GetToolPosition();
-			Gizmos.color = Color.cyan;
-			Gizmos.DrawWireSphere(toolPos, 0.05f);
-
 			// Draw magnet face normal
+			Vector3 toolPos = GetToolPosition();
 			Gizmos.color = Color.green;
 			Gizmos.DrawRay(toolPos, GetMagnetFaceNormal() * 0.15f);
 		}

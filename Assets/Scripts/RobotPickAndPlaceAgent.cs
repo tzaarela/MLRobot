@@ -138,9 +138,9 @@ namespace RobotArm
 			Vector3 toolPos = GetLocalPosition(robotController.GetToolPosition());
 			sensor.AddObservation(toolPos);
 
-			// Tool orientation (as forward and up vectors for stability)
-			Vector3 toolUp = robotController.GetMagnetFaceNormal();
-			sensor.AddObservation(toolUp);
+			// Tool orientation (as forward vector)
+			Vector3 toolRight = robotController.GetMagnetFaceNormal();
+			sensor.AddObservation(toolRight);
 
 			//vector between drop off and magnet
 			sensor.AddObservation(dropOffZone.position - toolPos);
@@ -317,15 +317,18 @@ namespace RobotArm
 			}
 
 			// Failure: Object fell off table
-			if (targetObject.position.y < objectFallThreshold)
-			{
-				AddReward(dropPenalty);
-				EndEpisode();
-				return;
-			}
+			//if (targetObject.position.y < objectFallThreshold)
+			//{
+			//	AddReward(dropPenalty);
+			//	EndEpisode();
+			//	return;
+			//}
 
-			// Timeout
-			if (currentStep >= maxEpisodeSteps)
+			// Timeout (only in training mode, not in manual/heuristic mode)
+			bool isHeuristicMode = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>().BehaviorType ==
+								   Unity.MLAgents.Policies.BehaviorType.HeuristicOnly;
+
+			if (!isHeuristicMode && currentStep >= maxEpisodeSteps)
 			{
 				EndEpisode();
 			}
