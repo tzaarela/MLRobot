@@ -20,13 +20,17 @@ namespace RobotArm
 		[Range(0.01f, 1f)]
 		public float linearSpeed = 0.1f;
 
+		[Tooltip("Angular rotation speed in radians per second")]
+		[Range(0.1f, 5f)]
+		public float angularSpeed = 1.5f;
+
 		[Tooltip("Maximum step size per iteration (prevents large jumps)")]
 		[Range(0.001f, 0.1f)]
 		public float maxStepSize = 0.01f;
 
 		[Tooltip("Damping factor for pseudo-inverse (prevents singularities)")]
 		[Range(0f, 1f)]
-		public float dampingFactor = 0.1f;
+		public float dampingFactor = 0.5f;
 
 		[Header("Iteration Settings")]
 		[Tooltip("Maximum iterations for IK convergence")]
@@ -46,8 +50,9 @@ namespace RobotArm
 		public bool showDebugInfo = false;
 		public bool showDebugGizmos = true;
 
-		// Numerical derivative step size for Jacobian calculation
-		private const float EPSILON = 0.001f;
+		// Numerical derivative step size for Jacobian calculation (in degrees)
+		// Increased for better numerical stability with rotations
+		private const float EPSILON = 0.01f;
 
 		// Current target in Cartesian space
 		private Vector3 targetPosition;
@@ -165,8 +170,8 @@ namespace RobotArm
 			// This prevents position drift during orientation-only movements
 			targetPosition = robotController.GetToolPosition();
 
-			// Scale by speed (using linearSpeed as rotation speed for now)
-			Vector3 angularDelta = new Vector3(deltaRoll, deltaPitch, deltaYaw) * linearSpeed * deltaTime;
+			// Scale by angular speed (radians per second)
+			Vector3 angularDelta = new Vector3(deltaRoll, deltaPitch, deltaYaw) * angularSpeed * deltaTime;
 
 			if (showDebugInfo && angularDelta.magnitude > 0.0001f)
 			{
@@ -250,7 +255,7 @@ namespace RobotArm
 
 				// Orientation error (axis-angle representation)
 				Quaternion rotError = targetRot * Quaternion.Inverse(currentRot);
-				Vector3 angularError = QuaternionToAngularVelocity(rotError, 1f);
+				Vector3 angularError = QuaternionToAxisAngle(rotError);
 
 				// Combined 6D error vector
 				float[] error = new float[6];
@@ -293,6 +298,13 @@ namespace RobotArm
 					}
 				}
 
+				// Clamp joint deltas to prevent large jumps (max 5 degrees per iteration)
+				float maxJointDelta = 5f * Mathf.Deg2Rad; // 5 degrees in radians
+				for (int i = 0; i < 6; i++)
+				{
+					jointDeltas[i] = Mathf.Clamp(jointDeltas[i], -maxJointDelta, maxJointDelta);
+				}
+
 				// Apply joint movements (convert to degrees)
 				for (int i = 0; i < 6; i++)
 				{
@@ -303,14 +315,20 @@ namespace RobotArm
 
 				if (showDebugInfo && iteration % 5 == 0)
 				{
+					float maxJointDelta2 = 0f;
+					for (int i = 0; i < 6; i++)
+						maxJointDelta2 = Mathf.Max(maxJointDelta2, Mathf.Abs(jointDeltas[i] * Mathf.Rad2Deg));
+
 					Debug.Log($"[CartesianController] Iteration {iteration}: " +
-							 $"Pos error = {posErrorMag:F6}m, Rot error = {rotErrorMag * Mathf.Rad2Deg:F3}°");
+							 $"Pos error = {posErrorMag:F6}m, Rot error = {rotErrorMag * Mathf.Rad2Deg:F3}°, " +
+							 $"Max joint delta = {maxJointDelta2:F3}°");
 				}
 
 				if (showDebugInfo && iteration == maxIterations - 1)
 				{
 					Debug.LogWarning($"[CartesianController] Max iterations reached. " +
-								   $"Pos error: {posErrorMag:F4}m, Rot error: {rotErrorMag * Mathf.Rad2Deg:F2}°");
+								   $"Pos error: {posErrorMag:F4}m, Rot error: {rotErrorMag * Mathf.Rad2Deg:F2}°. " +
+								   $"Target may be unreachable or in singularity.");
 				}
 			}
 
@@ -366,13 +384,16 @@ namespace RobotArm
 				// Calculate position derivative (central difference)
 				Vector3 posDerivative = (posPlus - posMinus) / (2f * EPSILON * Mathf.Deg2Rad);
 
-				// Calculate orientation derivative (angular velocity)
+				// Calculate orientation derivative (axis-angle representation)
 				Quaternion deltaRotPlus = rotPlus * Quaternion.Inverse(baseRotation);
 				Quaternion deltaRotMinus = rotMinus * Quaternion.Inverse(baseRotation);
 
-				Vector3 angularVelPlus = QuaternionToAngularVelocity(deltaRotPlus, EPSILON * Mathf.Deg2Rad);
-				Vector3 angularVelMinus = QuaternionToAngularVelocity(deltaRotMinus, EPSILON * Mathf.Deg2Rad);
-				Vector3 rotDerivative = (angularVelPlus - angularVelMinus) / (2f * EPSILON * Mathf.Deg2Rad);
+				// Convert quaternions to axis-angle vectors (radians)
+				Vector3 axisAnglePlus = QuaternionToAxisAngle(deltaRotPlus);
+				Vector3 axisAngleMinus = QuaternionToAxisAngle(deltaRotMinus);
+
+				// Calculate derivative: ∂rotation/∂θ (radians/radian)
+				Vector3 rotDerivative = (axisAnglePlus - axisAngleMinus) / (2f * EPSILON * Mathf.Deg2Rad);
 
 				// Fill Jacobian column
 				jacobian[0, joint] = posDerivative.x;  // ∂x/∂θ
@@ -387,16 +408,11 @@ namespace RobotArm
 		}
 
 		/// <summary>
-		/// Convert a small quaternion rotation to angular velocity
+		/// Convert a quaternion to axis-angle representation as a 3D rotation vector.
+		/// Returns: axis * angle (in radians), representing the rotation
 		/// </summary>
-		private Vector3 QuaternionToAngularVelocity(Quaternion q, float dt)
+		private Vector3 QuaternionToAxisAngle(Quaternion q)
 		{
-			// For small rotations: ω ≈ 2 * [qx, qy, qz] / dt
-			if (Mathf.Abs(q.w) > 0.999f)
-			{
-				return Vector3.zero; // No rotation
-			}
-
 			// Ensure quaternion is in the "short way"
 			if (q.w < 0)
 			{
@@ -406,8 +422,38 @@ namespace RobotArm
 				q.w = -q.w;
 			}
 
-			Vector3 angularVel = new Vector3(q.x, q.y, q.z) * (2f / dt);
-			return angularVel;
+			// Axis-angle: θ = 2 * acos(w), axis = [x,y,z] / sin(θ/2)
+			// Return: rotation vector = axis * θ
+
+			float angle = 2f * Mathf.Acos(Mathf.Clamp(q.w, -1f, 1f)); // θ in radians
+
+			if (angle < 1e-6f)
+			{
+				// For extremely small rotations, use linear approximation
+				// rotation ≈ 2 * [qx, qy, qz]
+				return new Vector3(q.x, q.y, q.z) * 2f;
+			}
+
+			// Extract rotation axis and compute rotation vector
+			float sinHalfAngle = Mathf.Sin(angle * 0.5f);
+
+			if (Mathf.Abs(sinHalfAngle) < 1e-6f)
+			{
+				// Fallback for numerical safety
+				return new Vector3(q.x, q.y, q.z) * 2f;
+			}
+
+			Vector3 axis = new Vector3(q.x, q.y, q.z) / sinHalfAngle;
+			return axis * angle;
+		}
+
+		/// <summary>
+		/// Convert a small quaternion rotation to angular velocity
+		/// </summary>
+		private Vector3 QuaternionToAngularVelocity(Quaternion q, float dt)
+		{
+			Vector3 axisAngle = QuaternionToAxisAngle(q);
+			return axisAngle / dt;
 		}
 
 		/// <summary>

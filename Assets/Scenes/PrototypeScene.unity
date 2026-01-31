@@ -5092,6 +5092,16 @@ PrefabInstance:
       propertyPath: m_Mesh
       value: 
       objectReference: {fileID: 59606531}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: toolDownAxis.x
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: toolDownAxis.z
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_Mesh
@@ -5100,7 +5110,7 @@ PrefabInstance:
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_VersionIndex
-      value: 66
+      value: 78
       objectReference: {fileID: 0}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
