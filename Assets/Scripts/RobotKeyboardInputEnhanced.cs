@@ -42,6 +42,9 @@ namespace RobotArm
 		[Tooltip("ML Agent (optional, for reset)")]
 		public RobotPickAndPlaceAgent pickAndPlaceAgent;
 
+		[Tooltip("Training environment (for centralized reset)")]
+		public TrainingEnvironment trainingEnvironment;
+
 		[Header("Input Settings")]
 		[Tooltip("Rotation speed multiplier for joint mode")]
 		public float jointRotationSpeedMultiplier = 1f;
@@ -115,6 +118,22 @@ namespace RobotArm
 				{
 					Debug.LogWarning("[KeyboardInput] No CartesianController found. Cartesian mode disabled.");
 				}
+			}
+
+			// Auto-find TrainingEnvironment if not assigned
+			if (trainingEnvironment == null)
+			{
+				trainingEnvironment = GetComponentInParent<TrainingEnvironment>();
+				if (trainingEnvironment == null)
+				{
+					trainingEnvironment = FindObjectOfType<TrainingEnvironment>();
+				}
+			}
+
+			// Subscribe cartesian controller to environment reset event
+			if (cartesianController != null && trainingEnvironment != null)
+			{
+				cartesianController.SubscribeToEnvironment(trainingEnvironment);
 			}
 
 			Debug.Log($"[KeyboardInput] Initialized in {currentMode} mode");
@@ -295,34 +314,38 @@ namespace RobotArm
 			}
 
 			// ORIENTATION CONTROL: Arrow keys + Numpad 7/9
-			// Pitch (around Y axis) - Arrow Up/Down
-			if (Input.GetKey(KeyCode.UpArrow))
+
+			// Roll (around X axis) - Numpad 7/9
+			if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.Keypad8))
 			{
-				rotation.y = 1f; // Pitch up
+				rotation.x = 1f; // Roll left
+
 			}
-			else if (Input.GetKey(KeyCode.DownArrow))
+			else if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.Keypad5))
 			{
-				rotation.y = -1f; // Pitch down
+				rotation.x = -1f; // Roll right
+
 			}
 
 			// Yaw (around Z axis) - Arrow Left/Right
-			if (Input.GetKey(KeyCode.LeftArrow))
+			if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.Keypad4))
 			{
 				rotation.z = 1f; // Yaw left
 			}
-			else if (Input.GetKey(KeyCode.RightArrow))
+			else if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.Keypad6))
 			{
 				rotation.z = -1f; // Yaw right
 			}
 
-			// Roll (around X axis) - Numpad 7/9
+
+			// Pitch (around Y axis) - Arrow Up/Down
 			if (Input.GetKey(KeyCode.Keypad7))
-			{
-				rotation.x = 1f; // Roll left
+			{ 
+				rotation.y = 1f; // Pitch up{
 			}
 			else if (Input.GetKey(KeyCode.Keypad9))
 			{
-				rotation.x = -1f; // Roll right
+				rotation.y = -1f; // Pitch down
 			}
 
 			// Apply position movement
@@ -372,14 +395,20 @@ namespace RobotArm
 					pickAndPlaceAgent.EndEpisode();
 					Debug.Log("Robot EndEpisode");
 				}
+				else if (trainingEnvironment != null)
+				{
+					// Use centralized environment reset
+					trainingEnvironment.ResetEnvironment();
+				}
 				else
 				{
+					// Fallback: manual reset if no training environment found
 					robotController.ResetToStartPosition();
 					if (cartesianController != null)
 					{
 						cartesianController.ResetTarget();
 					}
-					Debug.Log("Robot Reset");
+					Debug.Log("Robot Reset (fallback)");
 				}
 			}
 		}

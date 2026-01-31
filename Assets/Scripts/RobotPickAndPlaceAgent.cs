@@ -25,6 +25,9 @@ namespace RobotArm
 		[Tooltip("Parent transform for this training instance (for parallel training)")]
 		public Transform environmentRoot;
 
+		[Tooltip("Training environment reference (auto-assigned)")]
+		public TrainingEnvironment trainingEnvironment;
+
 		[Tooltip("Spawn area for the target object")]
 		public Vector3 objectSpawnAreaMin = new Vector3(-0.5f, 0.1f, -0.5f);
 		public Vector3 objectSpawnAreaMax = new Vector3(0.5f, 0.1f, 0.5f);
@@ -96,6 +99,11 @@ namespace RobotArm
 				initialObjectRotation = targetObject.rotation;
 			}
 
+			// Auto-find TrainingEnvironment if not assigned
+			if (trainingEnvironment == null)
+			{
+				trainingEnvironment = GetComponentInParent<TrainingEnvironment>();
+			}
 		}
 
 		public override void OnEpisodeBegin()
@@ -109,8 +117,16 @@ namespace RobotArm
 			dropZoneTimer = 0f;
 			hasDroppedInZone = false;
 
-			// Reset robot
-			robotController.ResetToStartPosition();
+			// Reset environment (robot + all subscribed components)
+			if (trainingEnvironment != null)
+			{
+				trainingEnvironment.ResetEnvironment();
+			}
+			else
+			{
+				// Fallback: manual reset if no training environment
+				robotController.ResetToStartPosition();
+			}
 
 			// Reset and randomize object position
 			ResetTargetObject();

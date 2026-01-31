@@ -43,6 +43,9 @@ namespace RobotArm
 		[Tooltip("Maximum distance from starting position")]
 		public float maxReachDistance = 2f;
 
+		[Tooltip("Maximum reach vectors starting position")]
+		public Vector3 maxReachFromPosition = Vector3.zero;
+
 		[Tooltip("Enable workspace limits")]
 		public bool enforceWorkspaceLimits = true;
 
@@ -57,7 +60,7 @@ namespace RobotArm
 		// Current target in Cartesian space
 		private Vector3 targetPosition;
 		private Quaternion targetRotation;
-		private Vector3 initialToolPosition;
+		private Vector3 robotRootPosition;
 		private bool isInitialized = false;
 
 		private void Start()
@@ -75,7 +78,7 @@ namespace RobotArm
 
 			targetPosition = robotController.GetToolPosition();
 			targetRotation = robotController.GetToolRotation();
-			initialToolPosition = targetPosition;
+			robotRootPosition = transform.position + maxReachFromPosition; 
 			isInitialized = true;
 
 			if (showDebugInfo)
@@ -129,7 +132,7 @@ namespace RobotArm
 			// Check workspace limits
 			if (enforceWorkspaceLimits)
 			{
-				float distanceFromStart = Vector3.Distance(newTarget, initialToolPosition);
+				float distanceFromStart = Vector3.Distance(newTarget, robotRootPosition);
 				if (distanceFromStart > maxReachDistance)
 				{
 					if (showDebugInfo)
@@ -641,12 +644,45 @@ namespace RobotArm
 		}
 
 		/// <summary>
-		/// Reset target to current position and rotation
+		/// Reset target to current position and rotation.
+		/// Also resets initialToolPosition to prevent workspace limit issues after environment reset.
 		/// </summary>
 		public void ResetTarget()
 		{
 			targetPosition = robotController.GetToolPosition();
 			targetRotation = robotController.GetToolRotation();
+			robotRootPosition = transform.position + maxReachFromPosition;
+
+			if (showDebugInfo)
+			{
+				Debug.Log($"[CartesianController] Reset to position: {targetPosition}, rotation: {targetRotation.eulerAngles}");
+			}
+		}
+
+		/// <summary>
+		/// Subscribe to environment reset event
+		/// </summary>
+		public void SubscribeToEnvironment(TrainingEnvironment environment)
+		{
+			if (environment != null)
+			{
+				environment.OnEnvironmentReset += ResetTarget;
+				if (showDebugInfo)
+				{
+					Debug.Log("[CartesianController] Subscribed to environment reset event");
+				}
+			}
+		}
+
+		/// <summary>
+		/// Unsubscribe from environment reset event
+		/// </summary>
+		public void UnsubscribeFromEnvironment(TrainingEnvironment environment)
+		{
+			if (environment != null)
+			{
+				environment.OnEnvironmentReset -= ResetTarget;
+			}
 		}
 
 #if UNITY_EDITOR
@@ -671,7 +707,7 @@ namespace RobotArm
 			if (enforceWorkspaceLimits && isInitialized)
 			{
 				Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
-				Gizmos.DrawWireSphere(initialToolPosition, maxReachDistance);
+				Gizmos.DrawWireSphere(robotRootPosition, maxReachDistance);
 			}
 
 			// Draw coordinate axes at tool

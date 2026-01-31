@@ -6,6 +6,7 @@ namespace RobotArm
     /// <summary>
     /// Manages a training environment with a robot, target object, and drop zone.
     /// Can be duplicated for parallel training.
+    /// Provides centralized environment reset via events.
     /// </summary>
     public class TrainingEnvironment : MonoBehaviour
     {
@@ -14,19 +15,21 @@ namespace RobotArm
         public RobotPickAndPlaceAgent agent;
         public Transform targetObject;
         public Transform dropOffZone;
-        
+
         [Header("Spawn Settings")]
         public Transform objectSpawnArea;
-        
+
         [Header("Visual")]
         [Tooltip("Unique color for this environment's drop zone")]
         public Color environmentColor = Color.green;
-        
+
         private Renderer dropZoneRenderer;
 
+        // Reset event - components subscribe to this to handle their own reset
+        public event System.Action OnEnvironmentReset;
 
         public static TrainingEnvironment Instance;
-        
+
         private void Awake()
         {
 
@@ -65,7 +68,26 @@ namespace RobotArm
                 }
             }
         }
-        
+
+        /// <summary>
+        /// Reset the environment to starting state.
+        /// Triggers OnEnvironmentReset event for components to handle their own resets.
+        /// </summary>
+        public void ResetEnvironment()
+        {
+            // Reset robot to starting position
+            if (robotController != null)
+            {
+                robotController.ResetToStartPosition();
+            }
+
+            // Trigger reset event for all subscribed components
+            // (e.g., RobotCartesianController, other systems)
+            OnEnvironmentReset?.Invoke();
+
+            Debug.Log("[TrainingEnvironment] Environment reset");
+        }
+
         /// <summary>
         /// Create a duplicate of this environment at the specified position
         /// </summary>
