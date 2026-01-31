@@ -49,6 +49,10 @@ namespace RobotArm
 		[Tooltip("Minimum allowed height (Y position) for the tool - prevents going through the ground")]
 		public float groundPlaneHeight = 0f;
 
+		[Tooltip("Safety buffer to avoid singularities at max reach (0.9 = use 90% of max reach)")]
+		[Range(0.8f, 1f)]
+		public float maxReachSafetyFactor = 0.95f;
+
 		[Tooltip("Enable workspace limits (max/min reach + ground plane)")]
 		public bool enforceWorkspaceLimits = true;
 
@@ -64,6 +68,10 @@ namespace RobotArm
 		private Vector3 targetPosition;
 		private Quaternion targetRotation;
 		private bool isInitialized = false;
+
+		// Previous valid target (for rollback on IK failure)
+		private Vector3 previousValidPosition;
+		private Quaternion previousValidRotation;
 
 		private void Start()
 		{
@@ -104,6 +112,8 @@ namespace RobotArm
 
 			targetPosition = robotController.GetToolPosition();
 			targetRotation = robotController.GetToolRotation();
+			previousValidPosition = targetPosition;
+			previousValidRotation = targetRotation;
 			isInitialized = true;
 
 			if (showDebugInfo)
@@ -162,12 +172,15 @@ namespace RobotArm
 				Vector3 j1BasePosition = GetJ1BasePosition();
 				float reachDistance = Vector3.Distance(j1BasePosition, newTarget);
 
-				// Check maximum reach (outer sphere)
-				if (reachDistance > maxReachDistance)
+				// Apply safety factor to max reach to avoid singularities
+				float safeMaxReach = maxReachDistance * maxReachSafetyFactor;
+
+				// Check maximum reach (outer sphere with safety buffer)
+				if (reachDistance > safeMaxReach)
 				{
 					if (showDebugInfo)
 					{
-						Debug.LogWarning($"[CartesianController] Target exceeds max reach: {reachDistance:F3}m > {maxReachDistance}m");
+						Debug.LogWarning($"[CartesianController] Target exceeds safe max reach: {reachDistance:F3}m > {safeMaxReach:F3}m (safety factor: {maxReachSafetyFactor:F2})");
 					}
 					return;
 				}
@@ -193,6 +206,10 @@ namespace RobotArm
 				}
 			}
 
+			// Store previous valid target for potential rollback
+			Vector3 previousTarget = targetPosition;
+			Quaternion previousRotation = targetRotation;
+
 			targetPosition = newTarget;
 
 			if (showDebugInfo)
@@ -201,7 +218,25 @@ namespace RobotArm
 			}
 
 			// Solve IK to reach target (with updated current rotation as target)
-			SolveIK(targetPosition, targetRotation);
+			bool ikSuccess = SolveIK(targetPosition, targetRotation);
+
+			// Rollback if IK failed
+			if (!ikSuccess)
+			{
+				targetPosition = previousTarget;
+				targetRotation = previousRotation;
+
+				if (showDebugInfo)
+				{
+					Debug.LogWarning("[CartesianController] IK failed - rolling back to previous valid target");
+				}
+			}
+			else
+			{
+				// Update previous valid targets
+				previousValidPosition = targetPosition;
+				previousValidRotation = targetRotation;
+			}
 		}
 
 		/// <summary>
@@ -231,6 +266,10 @@ namespace RobotArm
 				Debug.Log($"[CartesianController] RotateCartesian called: delta=({deltaRoll:F3}, {deltaPitch:F3}, {deltaYaw:F3}) rad");
 			}
 
+			// Store previous valid target for potential rollback
+			Vector3 previousTarget = targetPosition;
+			Quaternion previousRotation = targetRotation;
+
 			// Apply rotation as Euler angles (world space)
 			Quaternion deltaRotation = Quaternion.Euler(
 				angularDelta.x * Mathf.Rad2Deg,
@@ -246,7 +285,25 @@ namespace RobotArm
 			}
 
 			// Solve IK to reach target rotation (with updated current position as target)
-			SolveIK(targetPosition, targetRotation);
+			bool ikSuccess = SolveIK(targetPosition, targetRotation);
+
+			// Rollback if IK failed
+			if (!ikSuccess)
+			{
+				targetPosition = previousTarget;
+				targetRotation = previousRotation;
+
+				if (showDebugInfo)
+				{
+					Debug.LogWarning("[CartesianController] IK failed on rotation - rolling back to previous valid target");
+				}
+			}
+			else
+			{
+				// Update previous valid targets
+				previousValidPosition = targetPosition;
+				previousValidRotation = targetRotation;
+			}
 		}
 
 		/// <summary>
@@ -272,8 +329,20 @@ namespace RobotArm
 		/// </summary>
 		public void SetTargetPosition(Vector3 position)
 		{
+			Vector3 previousTarget = targetPosition;
 			targetPosition = position;
-			SolveIK(targetPosition, targetRotation);
+
+			bool ikSuccess = SolveIK(targetPosition, targetRotation);
+
+			if (!ikSuccess)
+			{
+				targetPosition = previousTarget;
+			}
+			else
+			{
+				previousValidPosition = targetPosition;
+				previousValidRotation = targetRotation;
+			}
 		}
 
 		/// <summary>
@@ -281,22 +350,49 @@ namespace RobotArm
 		/// </summary>
 		public void SetTargetPose(Vector3 position, Quaternion rotation)
 		{
+			Vector3 previousTarget = targetPosition;
+			Quaternion previousRotation = targetRotation;
+
 			targetPosition = position;
 			targetRotation = rotation;
-			SolveIK(targetPosition, targetRotation);
+
+			bool ikSuccess = SolveIK(targetPosition, targetRotation);
+
+			if (!ikSuccess)
+			{
+				targetPosition = previousTarget;
+				targetRotation = previousRotation;
+			}
+			else
+			{
+				previousValidPosition = targetPosition;
+				previousValidRotation = targetRotation;
+			}
 		}
 
 		/// <summary>
 		/// Solve inverse kinematics using Jacobian pseudo-inverse method.
 		/// This is an iterative numerical approach commonly used in industry.
+		/// Returns true if IK converged successfully, false otherwise.
 		/// </summary>
-		private void SolveIK(Vector3 targetPos, Quaternion targetRot)
+		private bool SolveIK(Vector3 targetPos, Quaternion targetRot)
 		{
 			// Store original smooth movement setting
 			bool originalSmoothSetting = robotController.useSmoothMovement;
 
 			// Disable smooth movement for direct IK calculation
 			robotController.useSmoothMovement = false;
+
+			// Store original joint angles for rollback if IK fails
+			float[] originalAngles = new float[6];
+			for (int i = 0; i < 6; i++)
+			{
+				originalAngles[i] = robotController.GetJointAngle(i);
+			}
+
+			// Track final error
+			float finalPosError = 0f;
+			float finalRotError = 0f;
 
 			for (int iteration = 0; iteration < maxIterations; iteration++)
 			{
@@ -322,6 +418,10 @@ namespace RobotArm
 				// Calculate total error magnitude
 				float posErrorMag = posError.magnitude;
 				float rotErrorMag = angularError.magnitude;
+
+				// Store final errors
+				finalPosError = posErrorMag;
+				finalRotError = rotErrorMag;
 
 				// Check convergence
 				if (posErrorMag < convergenceThreshold && rotErrorMag < 0.01f) // 0.01 rad ≈ 0.57°
@@ -385,18 +485,40 @@ namespace RobotArm
 				}
 			}
 
+			// Check if IK converged to acceptable error
+			// More lenient thresholds: 1cm position error, 3° rotation error
+			bool ikConverged = (finalPosError < 0.01f && finalRotError < 0.05f); // 0.05 rad ≈ 2.86°
+
+			// If IK failed to converge, rollback joint angles
+			if (!ikConverged)
+			{
+				for (int i = 0; i < 6; i++)
+				{
+					robotController.SetJointAngle(i, originalAngles[i]);
+				}
+
+				if (showDebugInfo)
+				{
+					Debug.LogWarning($"[CartesianController] IK failed to converge - joints rolled back. " +
+									$"Final error: pos={finalPosError:F4}m, rot={finalRotError * Mathf.Rad2Deg:F2}°");
+				}
+			}
+
 			// Restore original smooth movement setting
 			robotController.useSmoothMovement = originalSmoothSetting;
+
+			return ikConverged;
 		}
 
 		/// <summary>
 		/// Solve IK with position only (orientation free)
+		/// Returns true if IK converged successfully, false otherwise.
 		/// </summary>
-		private void SolveIK(Vector3 targetPos)
+		private bool SolveIK(Vector3 targetPos)
 		{
 			// Use current orientation as target
 			Quaternion currentRot = robotController.GetToolRotation();
-			SolveIK(targetPos, currentRot);
+			return SolveIK(targetPos, currentRot);
 		}
 
 		/// <summary>
@@ -701,6 +823,8 @@ namespace RobotArm
 		{
 			targetPosition = robotController.GetToolPosition();
 			targetRotation = robotController.GetToolRotation();
+			previousValidPosition = targetPosition;
+			previousValidRotation = targetRotation;
 
 			if (showDebugInfo)
 			{
@@ -763,9 +887,14 @@ namespace RobotArm
 				Gizmos.color = Color.red;
 				Gizmos.DrawWireSphere(j1BasePosition, 0.03f);
 
-				// Draw maximum reach sphere (outer boundary)
-				Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
+				// Draw actual maximum reach sphere (faint - for reference)
+				Gizmos.color = new Color(1f, 1f, 0f, 0.15f);
 				Gizmos.DrawWireSphere(j1BasePosition, maxReachDistance);
+
+				// Draw safe maximum reach sphere (enforced boundary)
+				float safeMaxReach = maxReachDistance * maxReachSafetyFactor;
+				Gizmos.color = new Color(1f, 0.8f, 0f, 0.4f);
+				Gizmos.DrawWireSphere(j1BasePosition, safeMaxReach);
 
 				// Draw minimum reach sphere (inner boundary - donut hole)
 				Gizmos.color = new Color(1f, 0f, 0f, 0.4f);
@@ -785,11 +914,12 @@ namespace RobotArm
 
 				// Draw reach distance label in scene view
 				float currentReach = Vector3.Distance(j1BasePosition, currentPos);
+				float safeReachMax = maxReachDistance * maxReachSafetyFactor;
 				if (showDebugInfo)
 				{
 					UnityEditor.Handles.Label(
 						Vector3.Lerp(j1BasePosition, currentPos, 0.5f),
-						$"Reach: {currentReach:F3}m ({minReachDistance:F2}-{maxReachDistance:F2}m)\nHeight: {currentPos.y:F3}m (min: {groundPlaneHeight:F2}m)"
+						$"Reach: {currentReach:F3}m ({minReachDistance:F2}-{safeReachMax:F2}m safe)\nHeight: {currentPos.y:F3}m (min: {groundPlaneHeight:F2}m)"
 					);
 				}
 			}
