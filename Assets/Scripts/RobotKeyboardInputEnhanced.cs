@@ -318,23 +318,21 @@ namespace RobotArm
 			// Roll (around X axis) - Numpad 7/9
 			if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.Keypad8))
 			{
-				rotation.x = 1f; // Roll left
-
+				rotation.z = 1f; // Yaw left
 			}
 			else if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.Keypad5))
 			{
-				rotation.x = -1f; // Roll right
-
+				rotation.z = -1f; // Yaw right
 			}
 
 			// Yaw (around Z axis) - Arrow Left/Right
 			if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.Keypad4))
 			{
-				rotation.z = 1f; // Yaw left
+				rotation.x = 1f; // Roll left
 			}
 			else if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.Keypad6))
 			{
-				rotation.z = -1f; // Yaw right
+				rotation.x = -1f; // Roll right
 			}
 
 

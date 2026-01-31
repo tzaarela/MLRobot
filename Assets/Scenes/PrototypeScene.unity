@@ -415,8 +415,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 330585543}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.16971767, y: -0.6877201, z: 0.17056265, w: 0.6849419}
-  m_LocalPosition: {x: 2.54718, y: 2.255065, z: -0.13244413}
+  m_LocalRotation: {x: 0.010097112, y: -0.72816265, z: 0.011093506, w: 0.6852402}
+  m_LocalPosition: {x: 2.2490544, y: 0.9185505, z: -0.041499853}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -5124,6 +5124,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: maxIterations
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: toolDownAxis.x
       value: 1
       objectReference: {fileID: 0}
@@ -5134,8 +5139,28 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: maxReachDistance
+      value: 2
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: minReachDistance
+      value: 0.95
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: groundPlaneHeight
+      value: 0.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: jointLimitSafetyMargin
       value: 0.99
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: maxReachFromPosition.y
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5145,7 +5170,7 @@ PrefabInstance:
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_VersionIndex
-      value: 93
+      value: 96
       objectReference: {fileID: 0}
     - target: {fileID: 8680220112687307225, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}

@@ -40,13 +40,16 @@ namespace RobotArm
 		public float convergenceThreshold = 0.001f;
 
 		[Header("Safety Limits")]
-		[Tooltip("Maximum distance from starting position")]
+		[Tooltip("Maximum reach distance from J1 base to J6 flange (outer sphere)")]
 		public float maxReachDistance = 2f;
 
-		[Tooltip("Maximum reach vectors starting position")]
-		public Vector3 maxReachFromPosition = Vector3.zero;
+		[Tooltip("Minimum reach distance from J1 base to J6 flange (inner sphere - prevents collision with base)")]
+		public float minReachDistance = 0.3f;
 
-		[Tooltip("Enable workspace limits")]
+		[Tooltip("Minimum allowed height (Y position) for the tool - prevents going through the ground")]
+		public float groundPlaneHeight = 0f;
+
+		[Tooltip("Enable workspace limits (max/min reach + ground plane)")]
 		public bool enforceWorkspaceLimits = true;
 
 		[Header("Debug")]
@@ -60,12 +63,35 @@ namespace RobotArm
 		// Current target in Cartesian space
 		private Vector3 targetPosition;
 		private Quaternion targetRotation;
-		private Vector3 robotRootPosition;
 		private bool isInitialized = false;
 
 		private void Start()
 		{
 			Initialize();
+		}
+
+		/// <summary>
+		/// Get the J1 base joint position (the rotation axis of the base).
+		/// This is the reference point for calculating maximum reach.
+		/// </summary>
+		private Vector3 GetJ1BasePosition()
+		{
+			if (robotController == null || robotController.joints == null || robotController.joints.Length == 0)
+			{
+				Debug.LogWarning("[CartesianController] Cannot get J1 position - robot controller not properly configured");
+				return transform.position;
+			}
+
+			// J1 is the first joint (index 0) - the base rotation
+			var j1Joint = robotController.joints[0];
+			if (j1Joint.jointTransform != null)
+			{
+				return j1Joint.jointTransform.position;
+			}
+
+			// Fallback to robot controller's root transform
+			Debug.LogWarning("[CartesianController] J1 joint transform is null, using robot root position as fallback");
+			return robotController.transform.position;
 		}
 
 		private void Initialize()
@@ -78,12 +104,13 @@ namespace RobotArm
 
 			targetPosition = robotController.GetToolPosition();
 			targetRotation = robotController.GetToolRotation();
-			robotRootPosition = transform.position + maxReachFromPosition; 
 			isInitialized = true;
 
 			if (showDebugInfo)
 			{
-				Debug.Log($"[CartesianController] Initialized at position: {targetPosition}, rotation: {targetRotation.eulerAngles}");
+				Vector3 j1Pos = GetJ1BasePosition();
+				float currentReach = Vector3.Distance(j1Pos, targetPosition);
+				Debug.Log($"[CartesianController] Initialized at position: {targetPosition}, rotation: {targetRotation.eulerAngles}, current reach: {currentReach:F3}m");
 			}
 		}
 
@@ -129,15 +156,38 @@ namespace RobotArm
 			// Update target position
 			Vector3 newTarget = targetPosition + desiredDelta;
 
-			// Check workspace limits
+			// Check workspace limits (donut-shaped envelope: max/min reach + ground plane)
 			if (enforceWorkspaceLimits)
 			{
-				float distanceFromStart = Vector3.Distance(newTarget, robotRootPosition);
-				if (distanceFromStart > maxReachDistance)
+				Vector3 j1BasePosition = GetJ1BasePosition();
+				float reachDistance = Vector3.Distance(j1BasePosition, newTarget);
+
+				// Check maximum reach (outer sphere)
+				if (reachDistance > maxReachDistance)
 				{
 					if (showDebugInfo)
 					{
-						Debug.LogWarning($"[CartesianController] Target exceeds max reach distance: {distanceFromStart:F3}m > {maxReachDistance}m");
+						Debug.LogWarning($"[CartesianController] Target exceeds max reach: {reachDistance:F3}m > {maxReachDistance}m");
+					}
+					return;
+				}
+
+				// Check minimum reach (inner sphere - prevents collision with base)
+				if (reachDistance < minReachDistance)
+				{
+					if (showDebugInfo)
+					{
+						Debug.LogWarning($"[CartesianController] Target too close to base: {reachDistance:F3}m < {minReachDistance}m");
+					}
+					return;
+				}
+
+				// Check ground plane limit
+				if (newTarget.y < groundPlaneHeight)
+				{
+					if (showDebugInfo)
+					{
+						Debug.LogWarning($"[CartesianController] Target below ground plane: {newTarget.y:F3}m < {groundPlaneHeight}m");
 					}
 					return;
 				}
@@ -645,17 +695,18 @@ namespace RobotArm
 
 		/// <summary>
 		/// Reset target to current position and rotation.
-		/// Also resets initialToolPosition to prevent workspace limit issues after environment reset.
+		/// Called after environment reset to sync targets with current robot state.
 		/// </summary>
 		public void ResetTarget()
 		{
 			targetPosition = robotController.GetToolPosition();
 			targetRotation = robotController.GetToolRotation();
-			robotRootPosition = transform.position + maxReachFromPosition;
 
 			if (showDebugInfo)
 			{
-				Debug.Log($"[CartesianController] Reset to position: {targetPosition}, rotation: {targetRotation.eulerAngles}");
+				Vector3 j1Pos = GetJ1BasePosition();
+				float currentReach = Vector3.Distance(j1Pos, targetPosition);
+				Debug.Log($"[CartesianController] Reset to position: {targetPosition}, rotation: {targetRotation.eulerAngles}, current reach: {currentReach:F3}m");
 			}
 		}
 
@@ -690,7 +741,7 @@ namespace RobotArm
 		{
 			if (!showDebugGizmos || robotController == null) return;
 
-			// Draw current tool position
+			// Draw current tool position (J6 flange)
 			Vector3 currentPos = robotController.GetToolPosition();
 			Gizmos.color = Color.cyan;
 			Gizmos.DrawWireSphere(currentPos, 0.02f);
@@ -703,11 +754,44 @@ namespace RobotArm
 				Gizmos.DrawLine(currentPos, targetPosition);
 			}
 
-			// Draw workspace limit
-			if (enforceWorkspaceLimits && isInitialized)
+			// Draw workspace limits (donut-shaped envelope)
+			if (enforceWorkspaceLimits)
 			{
+				Vector3 j1BasePosition = GetJ1BasePosition();
+
+				// Draw J1 base position marker
+				Gizmos.color = Color.red;
+				Gizmos.DrawWireSphere(j1BasePosition, 0.03f);
+
+				// Draw maximum reach sphere (outer boundary)
 				Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
-				Gizmos.DrawWireSphere(robotRootPosition, maxReachDistance);
+				Gizmos.DrawWireSphere(j1BasePosition, maxReachDistance);
+
+				// Draw minimum reach sphere (inner boundary - donut hole)
+				Gizmos.color = new Color(1f, 0f, 0f, 0.4f);
+				Gizmos.DrawWireSphere(j1BasePosition, minReachDistance);
+
+				// Draw ground plane limit
+				Gizmos.color = new Color(0.5f, 0.3f, 0.1f, 0.5f);
+				float planeSize = maxReachDistance * 2f;
+				Vector3 planeCenter = new Vector3(j1BasePosition.x, groundPlaneHeight, j1BasePosition.z);
+
+				// Draw ground plane as a grid
+				DrawGroundPlaneGrid(planeCenter, planeSize);
+
+				// Draw line from J1 to tool showing current reach
+				Gizmos.color = Color.green;
+				Gizmos.DrawLine(j1BasePosition, currentPos);
+
+				// Draw reach distance label in scene view
+				float currentReach = Vector3.Distance(j1BasePosition, currentPos);
+				if (showDebugInfo)
+				{
+					UnityEditor.Handles.Label(
+						Vector3.Lerp(j1BasePosition, currentPos, 0.5f),
+						$"Reach: {currentReach:F3}m ({minReachDistance:F2}-{maxReachDistance:F2}m)\nHeight: {currentPos.y:F3}m (min: {groundPlaneHeight:F2}m)"
+					);
+				}
 			}
 
 			// Draw coordinate axes at tool
@@ -718,6 +802,36 @@ namespace RobotArm
 			Gizmos.DrawRay(currentPos, Vector3.up * axisLength);
 			Gizmos.color = Color.blue;
 			Gizmos.DrawRay(currentPos, Vector3.forward * axisLength);
+		}
+
+		/// <summary>
+		/// Draw a grid to visualize the ground plane limit
+		/// </summary>
+		private void DrawGroundPlaneGrid(Vector3 center, float size)
+		{
+			int gridLines = 10;
+			float step = size / gridLines;
+			float halfSize = size * 0.5f;
+
+			Gizmos.color = new Color(0.5f, 0.3f, 0.1f, 0.5f);
+
+			// Draw grid lines along X axis
+			for (int i = 0; i <= gridLines; i++)
+			{
+				float offset = -halfSize + (i * step);
+				Vector3 start = center + new Vector3(offset, 0, -halfSize);
+				Vector3 end = center + new Vector3(offset, 0, halfSize);
+				Gizmos.DrawLine(start, end);
+			}
+
+			// Draw grid lines along Z axis
+			for (int i = 0; i <= gridLines; i++)
+			{
+				float offset = -halfSize + (i * step);
+				Vector3 start = center + new Vector3(-halfSize, 0, offset);
+				Vector3 end = center + new Vector3(halfSize, 0, offset);
+				Gizmos.DrawLine(start, end);
+			}
 		}
 #endif
 	}
