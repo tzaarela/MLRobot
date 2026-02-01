@@ -776,10 +776,10 @@ namespace RobotArm
 			pickupTime = Time.time;
 			pickupHeight = transform.position.y;
 
-			if (logEvents)
-			{
-				Debug.Log($"[CollisionMonitor-{gameObject.name}] Created | PickupTime={pickupTime:F2}, PickupHeight={pickupHeight:F3}, GracePeriod={pickupGracePeriod}s, MinLift={minLiftHeight:F3}");
-			}
+			//if (logEvents)
+			//{
+			//	Debug.Log($"[CollisionMonitor-{gameObject.name}] Created | PickupTime={pickupTime:F2}, PickupHeight={pickupHeight:F3}, GracePeriod={pickupGracePeriod}s, MinLift={minLiftHeight:F3}");
+			//}
 		}
 
 		private void Update()
