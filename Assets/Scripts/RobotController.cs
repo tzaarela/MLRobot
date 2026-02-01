@@ -71,10 +71,15 @@ namespace RobotArm
 	/// Synchronize target angles with current angles.
 	/// Used after IK to prevent smooth movement from interpolating back to old targets.
 	/// </summary>
-	public void SyncTargetAnglesToCurrent()
+	/// <param name="excludeJ6">If true, J6 target angle will not be synced (preserves manual control)</param>
+	public void SyncTargetAnglesToCurrent(bool excludeJ6 = false)
 	{
 		for (int i = 0; i < joints.Length; i++)
 		{
+			// Skip J6 if manual control is active
+			if (excludeJ6 && i == 5)
+				continue;
+
 			targetAngles[i] = joints[i].currentAngle;
 		}
 	}

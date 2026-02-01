@@ -8,11 +8,6 @@
 
 ---
 
-## My first draft of the project:
-
-
-
-
 ## 1. Project Snapshot
 
 **Project Name:**
@@ -69,6 +64,9 @@ Unity 2022.3.50f1 / URP
   - Keyboard controls overlay (during play)
   - Episode summary screen (after episode end)
   - Training stats overlay (real-time metrics during ML training)
+
+### Movement
+   
 ---
 
 ## 5. Current Development Phase

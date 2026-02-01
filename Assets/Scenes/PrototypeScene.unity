@@ -5612,12 +5612,12 @@ PrefabInstance:
     - target: {fileID: 1550228477621720421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: joints.Array.data[5].maxAngle
-      value: 200
+      value: 360
       objectReference: {fileID: 0}
     - target: {fileID: 1550228477621720421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: joints.Array.data[5].minAngle
-      value: -200
+      value: -360
       objectReference: {fileID: 0}
     - target: {fileID: 3020551384343974421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
