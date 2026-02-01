@@ -4788,6 +4788,7 @@ MonoBehaviour:
   dropOffZone: {fileID: 275692514}
   objectSpawnArea: {fileID: 0}
   environmentColor: {r: 0, g: 1, b: 0, a: 1}
+  showDebugLogs: 0
 --- !u!4 &1978629291
 Transform:
   m_ObjectHideFlags: 0
@@ -5055,7 +5056,7 @@ PrefabInstance:
     - target: {fileID: 3020551384343974421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_BrainParameters.VectorObservationSize
-      value: 33
+      value: 35
       objectReference: {fileID: 0}
     - target: {fileID: 4125369518819724912, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5109,6 +5110,36 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 4558987905383249578, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: logCooldown
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4558987905383249578, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: showDebugRays
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4558987905383249578, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: logStateChanges
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4558987905383249578, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: showDebugGizmos
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4558987905383249578, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: debugMagneticPull
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4558987905383249578, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: logCollisionMonitor
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4558987905383249578, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: robotColliders.Array.data[6]
       value: 
       objectReference: {fileID: 1757914167}
@@ -5134,8 +5165,13 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: maxIterations
+      value: 31
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: showDebugInfo
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5145,6 +5181,11 @@ PrefabInstance:
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: toolDownAxis.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: showDebugGizmos
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
@@ -5165,7 +5206,7 @@ PrefabInstance:
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_VersionIndex
-      value: 117
+      value: 132
       objectReference: {fileID: 0}
     - target: {fileID: 8680220112687307225, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5219,9 +5260,29 @@ PrefabInstance:
       objectReference: {fileID: 1381363180}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: showDebugLogs
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: safeLiftHeight
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: environmentRoot
       value: 
       objectReference: {fileID: 1978629291}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: liftRewardPerMM
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: objectFallThreshold
+      value: 0.22
+      objectReference: {fileID: 0}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: trainingEnvironment

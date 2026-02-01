@@ -23,7 +23,10 @@ namespace RobotArm
         [Tooltip("Unique color for this environment's drop zone")]
         public Color environmentColor = Color.green;
 
-        private Renderer dropZoneRenderer;
+        [Header("Debug")]
+        public bool showDebugLogs = false;
+
+		private Renderer dropZoneRenderer;
 
         // Reset event - components subscribe to this to handle their own reset
         public event System.Action OnEnvironmentReset;
@@ -85,7 +88,8 @@ namespace RobotArm
             // (e.g., RobotCartesianController, other systems)
             OnEnvironmentReset?.Invoke();
 
-            Debug.Log("[TrainingEnvironment] Environment reset");
+            if (showDebugLogs)
+				Debug.Log("[TrainingEnvironment] Environment reset");
         }
 
         /// <summary>

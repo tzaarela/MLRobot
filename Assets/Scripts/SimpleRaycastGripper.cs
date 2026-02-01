@@ -750,7 +750,7 @@ namespace RobotArm
 		private float pickupHeight;
 
 		[Tooltip("Grace period after pickup")]
-		public float pickupGracePeriod = 0.2f;
+		public float pickupGracePeriod = 0.1f; // Reduced from 0.2f - smaller exploit window
 
 		[Tooltip("Height object must be lifted before collision detection")]
 		public float minLiftHeight = 0.03f;
@@ -811,6 +811,25 @@ namespace RobotArm
 					Debug.Log($"[CollisionMonitor-{gameObject.name}] Collision detection INACTIVE: {reason}");
 				}
 				return;
+			}
+
+			// Check ground plane penetration (even if Physics.ComputePenetration misses it)
+			const float groundPlaneY = 0f; // Match RobotCartesianController.groundPlaneHeight
+			float currentY = transform.position.y;
+			const float groundBuffer = 0.01f; // 1cm safety buffer
+
+			if (currentY < groundPlaneY + groundBuffer)
+			{
+				if (logEvents)
+				{
+					Debug.LogWarning($"[CollisionMonitor-{gameObject.name}] ⚠ Ground plane penetration! y={currentY:F3}m - RELEASING!");
+				}
+
+				if (gripper != null)
+				{
+					gripper.Release();
+				}
+				return; // Exit to trigger release
 			}
 
 			pickupHeight = -10; // Disable further height checks after activation

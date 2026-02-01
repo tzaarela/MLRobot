@@ -28,13 +28,14 @@ namespace RobotArm
 	///
 	/// BEHAVIOR PARAMETERS CONFIGURATION (Unity Inspector):
 	///
-	/// Observations: 30 (Vector)
+	/// Observations: 32 (Vector)
 	///   - 6: Joint angles (normalized)
 	///   - 7: Tool state (position, orientation, distance to drop zone)
 	///   - 7: Target object state (position, orientation, distance)
-	///   - 4: Goal state (drop zone position, distance)
+	///   - 5: Goal state (drop zone position, distance, Y rotation)
 	///   - 3: Gripper state (magnet on/off, holding object, can activate)
 	///   - 3: Current movement mode (one-hot: Joint/CartesianWorld/CartesianTool)
+	///   - 1: Ground distance (object height normalized to 0.5m range)
 	///
 	/// Actions:
 	///   Continuous: 6
@@ -97,6 +98,13 @@ namespace RobotArm
 		[Tooltip("Reward for picking up the object")]
 		public float pickupReward = 0.5f;
 
+		public float safeLiftHeight = 0.1f; // 10cm above pickup (target)
+		public float liftIncrement = 0.001f; // 1mm increments
+		public float liftRewardPerMM = 0.003f; // 0.3f total over 100mm
+
+		[Tooltip("Reward scale for maintaining object alignment with drop zone rotation")]
+		public float alignmentRewardScale = 0.01f;
+
 		[Tooltip("Reward scale for bringing object closer to goal")]
 		public float deliveryRewardScale = 0.02f;
 
@@ -136,6 +144,11 @@ namespace RobotArm
 		private bool isTimerActive = false;
 		private float dropZoneTimer = 0f;
 		private bool hasDroppedInZone = false;
+
+		// Lift bonus tracking (incremental rewards)
+		private float objectPickupHeight = 0f;
+		private float maxLiftHeightReached = 0f; // Max lift achieved this episode
+		
 
 		// Movement mode tracking (for Auto mode)
 		private MovementMode currentActiveMode = MovementMode.Joint;
@@ -186,6 +199,10 @@ namespace RobotArm
 			isTimerActive = false;
 			dropZoneTimer = 0f;
 			hasDroppedInZone = false;
+
+			// Reset lift bonus tracking
+			maxLiftHeightReached = 0f;
+			objectPickupHeight = 0f;
 
 			// Reset current mode (for Auto mode, start with Joint)
 			currentActiveMode = (movementMode == MovementMode.Auto) ? MovementMode.Joint : movementMode;
@@ -281,7 +298,7 @@ namespace RobotArm
 			float distToObject = toolToObject.magnitude;
 			sensor.AddObservation(Mathf.Clamp01(distToObject / 2f));
 
-			// === Goal State (4 values) ===
+			// === Goal State (5 values) ===
 			// Drop zone position
 			Vector3 goalPos = GetLocalPosition(dropOffZone.position);
 			sensor.AddObservation(goalPos);
@@ -289,6 +306,10 @@ namespace RobotArm
 			// Distance from object to goal (normalized)
 			float distToGoal = Vector3.Distance(targetObject.position, dropOffZone.position);
 			sensor.AddObservation(Mathf.Clamp01(distToGoal / 2f));
+
+			// Drop zone Y rotation (yaw) - normalized to 0-1
+			float dropZoneYaw = dropOffZone.eulerAngles.y / 360f;
+			sensor.AddObservation(dropZoneYaw);
 
 			// === Gripper State (3 values) ===
 			sensor.AddObservation(robotController.magnet.IsActive ? 1f : 0f);
@@ -301,7 +322,12 @@ namespace RobotArm
 			sensor.AddObservation(currentActiveMode == MovementMode.CartesianWorld ? 1f : 0f);
 			sensor.AddObservation(currentActiveMode == MovementMode.CartesianTool ? 1f : 0f);
 
-			// Total: 6 + 7 + 7 + 4 + 3 + 3 = 30 observations
+			// === Ground Distance (1 value) ===
+			// Distance from object to ground plane (normalized to 0.5m range)
+			float groundDistance = Mathf.Max(0f, targetObject.position.y);
+			sensor.AddObservation(Mathf.Clamp01(groundDistance / 0.5f));
+
+			// Total: 6 + 7 + 7 + 5 + 3 + 3 + 1 = 32 observations
 		}
 
 		public override void OnActionReceived(ActionBuffers actions)
@@ -464,12 +490,12 @@ namespace RobotArm
 			{
 				AddReward(pickupReward);
 				hasPickedUp = true;
+				objectPickupHeight = targetObject.position.y; // Record pickup height for lift bonus
 			}
 
 			// Phase 2: Delivering object (when holding)
 			if (isHolding)
 			{
-				AddReward(0.5f);
 				// Reward for bringing object closer to goal
 				float deliveryDelta = previousDistanceToGoal - currentDistToGoal;
 
@@ -480,6 +506,57 @@ namespace RobotArm
 				else
 				{
 					AddReward(-0.55f);
+				}
+
+				// Incremental rewards for lifting object toward safe height
+				float objectHeight = targetObject.position.y;
+				float liftHeight = Mathf.Min(objectHeight - objectPickupHeight, safeLiftHeight);
+
+				if (liftHeight > maxLiftHeightReached)
+				{
+					float heightGain = liftHeight - maxLiftHeightReached;
+					int incrementsCrossed = Mathf.FloorToInt(heightGain / liftIncrement);
+
+					if (incrementsCrossed > 0)
+					{
+						float reward = incrementsCrossed * liftRewardPerMM;
+						AddReward(reward);
+						maxLiftHeightReached += incrementsCrossed * liftIncrement; // Update by exact increments
+
+						if (showDebugLogs)
+						{
+							Debug.Log($"[Lift Progress] +{reward:F4} for {incrementsCrossed}mm lift (now at {maxLiftHeightReached:F3}m / {safeLiftHeight}m)");
+						}
+					}
+				}
+
+				// Reward for maintaining alignment with drop zone rotation
+				float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
+				float alignmentFactor = Mathf.Clamp01(1f - (angleToDropZone / 180f));
+				float alignmentReward = alignmentRewardScale * alignmentFactor;
+				AddReward(alignmentReward);
+
+				if (showDebugLogs && currentStep % 100 == 0)
+				{
+					Debug.Log($"[Alignment] Angle: {angleToDropZone:F1}° | Factor: {alignmentFactor:F3} | Reward: {alignmentReward:F4}");
+				}
+
+				// Penalize holding object at dangerous heights
+
+				if (objectHeight < objectFallThreshold) // 0.05m
+				{
+					// Strong penalty for critical danger zone
+					AddReward(-0.5f);
+
+					if (showDebugLogs)
+					{
+						Debug.LogWarning($"[Agent] Object critically low: {objectHeight:F3}m - HIGH PENALTY");
+					}
+				}
+				else if (objectHeight < objectFallThreshold + 0.05f) // 0.10m warning zone
+				{
+					// Mild penalty for approaching danger
+					AddReward(-0.1f);
 				}
 			}
 
@@ -504,6 +581,7 @@ namespace RobotArm
 						Debug.Log($"[Reward] Value: {dropPenalty} | Dropped object outside goal zone.");
 					}
 					AddReward(dropPenalty);
+					EndEpisode();
 				}
 			}
 
@@ -544,6 +622,20 @@ namespace RobotArm
 					hasDroppedInZone = false;
 				}
 			}
+
+			// Check if held object went below floor (CRITICAL: Check BEFORE updating wasHolding)
+			if (isHolding && targetObject.position.y < objectFallThreshold)
+			{
+				if (showDebugLogs)
+				{
+					Debug.LogWarning($"[Failure] Agent pushed held object below floor: y={targetObject.position.y:F3}m");
+				}
+
+				AddReward(dropPenalty * 2f); // -1.0f (double penalty for active exploit)
+				EndEpisode();
+				return;
+			}
+
 			// Update tracking
 			previousDistanceToObject = currentDistToObject;
 			previousDistanceToGoal = currentDistToGoal;
@@ -553,12 +645,16 @@ namespace RobotArm
 		private void CheckEpisodeEnd()
 		{
 			// Failure: Object fell off table
-			//if (targetObject.position.y < objectFallThreshold)
-			//{
-			//	AddReward(dropPenalty);
-			//	EndEpisode();
-			//	return;
-			//}
+			if (targetObject.position.y < objectFallThreshold)
+			{
+				if (showDebugLogs)
+				{
+					Debug.Log($"[Failure] Object fell below floor: y={targetObject.position.y:F3}m < {objectFallThreshold}m");
+				}
+				AddReward(dropPenalty);
+				EndEpisode();
+				return;
+			}
 
 			// Timeout (only in training mode, not in manual/heuristic mode)
 			bool isHeuristicMode = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>().BehaviorType ==
