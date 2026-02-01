@@ -315,7 +315,7 @@ namespace RobotArm
 
 			// ORIENTATION CONTROL: Arrow keys + Numpad 7/9
 
-			// Roll (around X axis) - Numpad 7/9
+			// Roll (around X axis) 
 			if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.Keypad8))
 			{
 				rotation.z = 1f; // Yaw left
@@ -325,7 +325,7 @@ namespace RobotArm
 				rotation.z = -1f; // Yaw right
 			}
 
-			// Yaw (around Z axis) - Arrow Left/Right
+			// Yaw (around Z axis)t
 			if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.Keypad4))
 			{
 				rotation.x = 1f; // Roll left
@@ -336,7 +336,7 @@ namespace RobotArm
 			}
 
 
-			// Pitch (around Y axis) - Arrow Up/Down
+			// Pitch (around Y axis)
 			if (Input.GetKey(KeyCode.Keypad7))
 			{ 
 				rotation.y = 1f; // Pitch up{

@@ -117,6 +117,27 @@ namespace RobotArm
 		[Tooltip("Small penalty per step to encourage efficiency")]
 		public float stepPenalty = -0.0002f;
 
+		[Header("Home Return Settings")]
+		[Tooltip("Reward bonus for returning home after successful placement")]
+		public float homeReturnBonus = 0.5f;
+
+		[Tooltip("Continuous reward per step for moving toward home (after placement)")]
+		public float homeApproachRewardScale = 0.005f;
+
+		[Tooltip("One-time reward for first reaching home position")]
+		public float homeArrivalReward = 0.1f;
+
+		[Tooltip("Continuous reward per step while at home during timer")]
+		public float atHomeRewardPerStep = 0.005f;
+
+		[Tooltip("Average joint angle tolerance (degrees) to consider robot at home")]
+		[Range(1f, 20f)]
+		public float homePositionTolerance = 5f;
+
+		[Tooltip("Maximum rotation angle (degrees) from drop zone to start timer")]
+		[Range(5f, 90f)]
+		public float alignmentToleranceForTimer = 30f;
+
 		[Header("Episode Settings")]
 		[Tooltip("Maximum steps before episode ends")]
 		public int maxEpisodeSteps = 5000;
@@ -154,7 +175,12 @@ namespace RobotArm
 		// Lift bonus tracking (incremental rewards)
 		private float objectPickupHeight = 0f;
 		private float maxLiftHeightReached = 0f; // Max lift achieved this episode
-		
+
+		// Home return tracking
+		private float[] homeJointAngles = new float[6];
+		private bool isAtHome = false;
+		private bool hasReturnedHome = false;
+		private float previousJointDistanceToHome = 0f;
 
 		// Movement mode tracking (for Auto mode)
 		private MovementMode currentActiveMode = MovementMode.Joint;
@@ -212,6 +238,19 @@ namespace RobotArm
 
 			// Reset current mode (for Auto mode, start with Joint)
 			currentActiveMode = (movementMode == MovementMode.Auto) ? MovementMode.Joint : movementMode;
+
+			// Reset home return tracking
+			hasReturnedHome = false;
+			isAtHome = false;
+
+			// Cache home joint angles
+			for (int i = 0; i < 6; i++)
+			{
+				homeJointAngles[i] = robotController.joints[i].startAngle;
+			}
+
+			// Calculate initial distance to home
+			previousJointDistanceToHome = CalculateJointDistanceToHome();
 
 			// Reset environment (robot + all subscribed components)
 			if (trainingEnvironment != null)
@@ -569,16 +608,33 @@ namespace RobotArm
 				// Check if dropped in goal zone
 				if (IsObjectInDropZone())
 				{
-					// Big reward for successful placement
-					AddReward(placementReward);
+					// Check rotation alignment
+					float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
 
-					if (showDebugLogs)
+					if (angleToDropZone <= alignmentToleranceForTimer)
 					{
-						Debug.Log($"[Placed in zone] Reward: +{placementReward} | Starting timer: {dropZoneStayDuration}s");
+						// Good alignment - reward and start timer
+						AddReward(placementReward);
+						isTimerActive = true;
+						dropZoneTimer = 0f;
+						hasDroppedInZone = true;
+
+						if (showDebugLogs)
+						{
+							Debug.Log($"[Placed in zone] Reward: +{placementReward} | Alignment: {angleToDropZone:F1}° | Timer started");
+						}
 					}
-					isTimerActive = true;
-					dropZoneTimer = 0f;
-					hasDroppedInZone = true;
+					else
+					{
+						// Poor alignment - penalty, no timer
+						float alignmentPenalty = -0.3f * (angleToDropZone / 180f);
+						AddReward(alignmentPenalty);
+
+						if (showDebugLogs)
+						{
+							Debug.Log($"[Poor Alignment] {angleToDropZone:F1}° (max: {alignmentToleranceForTimer}°) | Penalty: {alignmentPenalty:F3}");
+						}
+					}
 				}
 				else
 				{
@@ -602,19 +658,72 @@ namespace RobotArm
 					// Continuous reward for keeping object in zone
 					AddReward(inZoneRewardPerStep);
 
-					if (showDebugLogs && currentStep % 50 == 0)
-					{
-						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {dropZoneStayDuration:F2}s | In-zone reward: +{inZoneRewardPerStep}/step");
-					}
+					// Update home status
+					bool wasAtHome = isAtHome;
+					isAtHome = CheckIfAtHome();
 
-					// Success! Object stayed in zone for required duration
-					if (dropZoneTimer >= dropZoneStayDuration)
+					// One-time reward for arriving at home
+					if (isAtHome && !wasAtHome && !hasReturnedHome)
 					{
+						AddReward(homeArrivalReward);
+						hasReturnedHome = true;
+
 						if (showDebugLogs)
 						{
-							Debug.Log($"[SUCCESS!] Object stayed in zone for {dropZoneTimer:F2}s! Reward: {successReward}");
+							Debug.Log($"[Home Arrival] Reward: +{homeArrivalReward}");
 						}
-						AddReward(successReward);
+					}
+
+					// Continuous reward for being at home
+					if (isAtHome)
+					{
+						AddReward(atHomeRewardPerStep);
+					}
+					else
+					{
+						// Reward for moving toward home
+						float currentDistToHome = CalculateJointDistanceToHome();
+						float approachDelta = previousJointDistanceToHome - currentDistToHome;
+
+						if (approachDelta > 0)
+						{
+							float approachReward = approachDelta * homeApproachRewardScale;
+							AddReward(approachReward);
+						}
+
+						previousJointDistanceToHome = currentDistToHome;
+					}
+
+					if (showDebugLogs && currentStep % 50 == 0)
+					{
+						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {dropZoneStayDuration:F2}s | At home: {isAtHome} | Joint dist: {CalculateJointDistanceToHome():F1}°");
+					}
+
+					// Success! Timer completed
+					if (dropZoneTimer >= dropZoneStayDuration)
+					{
+						// Base success reward (50%)
+						float baseReward = successReward * 0.5f;
+						AddReward(baseReward);
+
+						// Bonus for being at home (50%)
+						if (isAtHome)
+						{
+							AddReward(homeReturnBonus);
+
+							if (showDebugLogs)
+							{
+								Debug.Log($"[SUCCESS + HOME!] Base: +{baseReward:F2} | Home bonus: +{homeReturnBonus:F2}");
+							}
+						}
+						else
+						{
+							if (showDebugLogs)
+							{
+								Debug.Log($"[SUCCESS (no home)] Base: +{baseReward:F2} | Missed bonus: {homeReturnBonus:F2}");
+							}
+						}
+
 						isTimerActive = false;
 						EndEpisode();
 					}
@@ -793,6 +902,31 @@ namespace RobotArm
 			return localPosition;
 		}
 
+		/// <summary>
+		/// Calculate average joint angle distance from home position
+		/// </summary>
+		private float CalculateJointDistanceToHome()
+		{
+			float totalError = 0f;
+
+			for (int i = 0; i < 6; i++)
+			{
+				float currentAngle = robotController.GetJointAngle(i);
+				float angleDiff = Mathf.Abs(Mathf.DeltaAngle(currentAngle, homeJointAngles[i]));
+				totalError += angleDiff;
+			}
+
+			return totalError / 6f;  // Average error per joint
+		}
+
+		/// <summary>
+		/// Check if robot is at home position
+		/// </summary>
+		private bool CheckIfAtHome()
+		{
+			return CalculateJointDistanceToHome() <= homePositionTolerance;
+		}
+
 #if UNITY_EDITOR
 		private void OnDrawGizmos()
 		{
@@ -816,6 +950,14 @@ namespace RobotArm
 					Gizmos.color = isInZone ? Color.cyan : Color.red;
 					Gizmos.DrawWireCube(objBounds.center, objBounds.size);
 				}
+			}
+
+			// Draw home position indicator
+			if (Application.isPlaying && isAtHome)
+			{
+				Vector3 toolPos = robotController.GetToolPosition();
+				Gizmos.color = Color.green;
+				Gizmos.DrawWireSphere(toolPos, 0.05f);
 			}
 		}
 #endif

@@ -19,11 +19,14 @@ namespace RobotArm
 		public bool showInEditor = true;
 
 		[Header("Colors")]
-		[Tooltip("Wireframe color")]
-		public Color wireframeColor = Color.green;
+		[Tooltip("Default color when no cube is within bounds")]
+		public Color startColor = Color.green;
 
+		[Tooltip("Color when robot is holding cube within bounds (with good alignment)")]
+		public Color holdingCubeWithinBounds = Color.yellow;
 
-		public Color activeColor = Color.cyan;
+		[Tooltip("Color when cube is dropped within bounds (with good alignment)")]
+		public Color cubeDroppedWithinBounds = Color.cyan;
 
 		[Tooltip("Line thickness for runtime visualization")]
 		[Range(0.001f, 0.05f)]
@@ -41,7 +44,7 @@ namespace RobotArm
 		private void DrawBounds()
 		{
 			// Draw wireframe
-			Gizmos.color = wireframeColor;
+			Gizmos.color = startColor;
 			Gizmos.DrawWireCube(transform.position, dropZoneSize);
 		}
 
@@ -67,8 +70,8 @@ namespace RobotArm
 
 			// Configure LineRenderer
 			lineRenderer.material = new Material(Shader.Find("Sprites/Default"));
-			lineRenderer.startColor = wireframeColor;
-			lineRenderer.endColor = wireframeColor;
+			lineRenderer.startColor = startColor;
+			lineRenderer.endColor = startColor;
 			lineRenderer.startWidth = lineThickness;
 			lineRenderer.endWidth = lineThickness;
 			lineRenderer.useWorldSpace = true;
@@ -127,10 +130,40 @@ namespace RobotArm
 				agent = TrainingEnvironment.Instance.agent;
 			}
 
-			bool inZone = agent.IsObjectInDropZone();
+			// Determine color based on state
+			Color targetColor = GetDropZoneColor();
 
-			lineRenderer.startColor = inZone ? activeColor : wireframeColor;
-			lineRenderer.endColor = inZone ? activeColor : wireframeColor;
+			lineRenderer.startColor = targetColor;
+			lineRenderer.endColor = targetColor;
+		}
+
+		/// <summary>
+		/// Determine drop zone color based on cube state and alignment
+		/// </summary>
+		private Color GetDropZoneColor()
+		{
+			if (agent == null || agent.targetObject == null)
+				return startColor;
+
+			bool objectInZone = agent.IsObjectInDropZone();
+
+			if (!objectInZone)
+				return startColor;
+
+			// Object is in zone - check alignment
+			float angleToDropZone = Quaternion.Angle(agent.targetObject.rotation, transform.rotation);
+			bool goodAlignment = angleToDropZone <= agent.alignmentToleranceForTimer;
+
+			if (!goodAlignment)
+				return startColor; // In zone but misaligned - show default color
+
+			// In zone with good alignment - check if holding or dropped
+			bool isHolding = agent.robotController.IsHoldingObject();
+
+			if (isHolding)
+				return holdingCubeWithinBounds;
+			else
+				return cubeDroppedWithinBounds;
 		}
 
 		private void OnValidate()
@@ -138,8 +171,8 @@ namespace RobotArm
 			// Update LineRenderer when values change in inspector
 			if (lineRenderer != null && Application.isPlaying)
 			{
-				lineRenderer.startColor = wireframeColor;
-				lineRenderer.endColor = wireframeColor;
+				lineRenderer.startColor = startColor;
+				lineRenderer.endColor = startColor;
 				lineRenderer.startWidth = lineThickness;
 				lineRenderer.endWidth = lineThickness;
 				UpdateLineRenderer();

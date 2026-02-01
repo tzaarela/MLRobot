@@ -4997,6 +4997,16 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 7714003875423684264, guid: 2387778469eac094a8fba3cf9449c2b2,
+        type: 3}
+      propertyPath: startColor.b
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 7714003875423684264, guid: 2387778469eac094a8fba3cf9449c2b2,
+        type: 3}
+      propertyPath: cubeDroppedWithinBounds.b
+      value: 0.10895181
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5051,7 +5061,7 @@ PrefabInstance:
     - target: {fileID: 3020551384343974421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_BehaviorType
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3020551384343974421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5206,7 +5216,7 @@ PrefabInstance:
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_VersionIndex
-      value: 132
+      value: 135
       objectReference: {fileID: 0}
     - target: {fileID: 8680220112687307225, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5255,6 +5265,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: pickupReward
+      value: 0.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: targetObject
       value: 
       objectReference: {fileID: 1381363180}
@@ -5285,6 +5300,16 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: atHomeRewardPerStep
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: inZoneRewardPerStep
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: objectFallThreshold
       value: 0.2
       objectReference: {fileID: 0}
@@ -5293,6 +5318,26 @@ PrefabInstance:
       propertyPath: trainingEnvironment
       value: 
       objectReference: {fileID: 1978629290}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: alignmentRewardScale
+      value: 0.08
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: homePositionTolerance
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: homeApproachRewardScale
+      value: 0.01
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: alignmentToleranceForTimer
+      value: 8
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -5324,31 +5369,26 @@ PrefabInstance:
     - target: {fileID: 4460767014612995817, guid: 81e8e276fa6860941a4f993499fc0b8a,
         type: 3}
       propertyPath: m_LocalRotation.w
-      value: 1
+      value: 0.93320215
       objectReference: {fileID: 0}
     - target: {fileID: 4460767014612995817, guid: 81e8e276fa6860941a4f993499fc0b8a,
         type: 3}
       propertyPath: m_LocalRotation.x
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 4460767014612995817, guid: 81e8e276fa6860941a4f993499fc0b8a,
         type: 3}
       propertyPath: m_LocalRotation.y
-      value: 0
+      value: 0.35935205
       objectReference: {fileID: 0}
     - target: {fileID: 4460767014612995817, guid: 81e8e276fa6860941a4f993499fc0b8a,
         type: 3}
       propertyPath: m_LocalRotation.z
-      value: 0
+      value: -0
       objectReference: {fileID: 0}
     - target: {fileID: 4460767014612995817, guid: 81e8e276fa6860941a4f993499fc0b8a,
         type: 3}
       propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 4460767014612995817, guid: 81e8e276fa6860941a4f993499fc0b8a,
-        type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4460767014612995817, guid: 81e8e276fa6860941a4f993499fc0b8a,
