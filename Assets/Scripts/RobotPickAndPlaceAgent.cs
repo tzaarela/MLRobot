@@ -379,29 +379,35 @@ namespace RobotArm
 		{
 			currentStep++;
 
-			// === Mode Selection (Auto mode only) ===
-			if (movementMode == MovementMode.Auto)
+			// Skip movement if in HeuristicOnly mode (keyboard controller handles it)
+			bool isHeuristicMode = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>()?.BehaviorType
+				== Unity.MLAgents.Policies.BehaviorType.HeuristicOnly;
+
+			if (!isHeuristicMode)
 			{
-				// Discrete action branch 1: mode selection (0=Joint, 1=CartesianWorld, 2=CartesianTool)
-				int modeAction = actions.DiscreteActions[1];
-				MovementMode newMode = (MovementMode)modeAction;
-
-				// Switch mode if different
-				if (newMode != currentActiveMode)
+				// === Mode Selection (Auto mode only) ===
+				if (movementMode == MovementMode.Auto)
 				{
-					currentActiveMode = newMode;
+					// Discrete action branch 1: mode selection (0=Joint, 1=CartesianWorld, 2=CartesianTool)
+					int modeAction = actions.DiscreteActions[1];
+					MovementMode newMode = (MovementMode)modeAction;
 
-					// Reset Cartesian target when switching to Cartesian modes
-					if ((currentActiveMode == MovementMode.CartesianWorld || currentActiveMode == MovementMode.CartesianTool)
-						&& cartesianController != null)
+					// Switch mode if different
+					if (newMode != currentActiveMode)
 					{
-						cartesianController.ResetTarget();
+						currentActiveMode = newMode;
+
+						// Reset Cartesian target when switching to Cartesian modes
+						if ((currentActiveMode == MovementMode.CartesianWorld || currentActiveMode == MovementMode.CartesianTool)
+							&& cartesianController != null)
+						{
+							cartesianController.ResetTarget();
+						}
 					}
 				}
-			}
 
-			// === Apply Movement Based on Current Active Mode ===
-			if (currentActiveMode == MovementMode.Joint)
+				// === Apply Movement Based on Current Active Mode ===
+				if (currentActiveMode == MovementMode.Joint)
 			{
 				// Joint mode: 6 continuous actions control joint angle deltas
 				float[] jointDeltas = new float[6];
@@ -459,6 +465,7 @@ namespace RobotArm
 					robotController.ApplyJointDeltas(jointDeltas, Time.fixedDeltaTime);
 				}
 			}
+			} // End of !isHeuristicMode check
 
 			// === Magnet Control ===
 			// Discrete action branch 0: magnet (0 = off, 1 = on)

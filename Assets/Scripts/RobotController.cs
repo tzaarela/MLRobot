@@ -121,7 +121,10 @@ namespace RobotArm
 			if (jointIndex < 0 || jointIndex >= joints.Length) return;
 
 			var joint = joints[jointIndex];
-			float newAngle = joint.currentAngle + deltaDegrees;
+			// When smooth movement is enabled, add delta to target angle instead of current angle
+			// This prevents fighting with the interpolation system
+			float baseAngle = useSmoothMovement ? targetAngles[jointIndex] : joint.currentAngle;
+			float newAngle = baseAngle + deltaDegrees;
 			SetJointAngle(jointIndex, newAngle);
 		}
 

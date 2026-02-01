@@ -136,7 +136,13 @@ namespace RobotArm
 				cartesianController.SubscribeToEnvironment(trainingEnvironment);
 			}
 
-			Debug.Log($"[KeyboardInput] Initialized in {currentMode} mode");
+			// Sync target angles if starting in Joint mode
+			if (currentMode == ControlMode.Joint)
+			{
+				robotController.SyncTargetAnglesToCurrent();
+			}
+
+			Debug.Log($"[KeyboardInput] Initialized in {currentMode} mode - selected joint: J{selectedJoint + 1}");
 		}
 
 		private void Update()
@@ -185,7 +191,9 @@ namespace RobotArm
 				else
 				{
 					currentMode = ControlMode.Joint;
-					Debug.Log("[KeyboardInput] Switched to JOINT mode");
+					// Sync target angles to prevent smooth movement conflicts
+					robotController.SyncTargetAnglesToCurrent();
+					Debug.Log($"[KeyboardInput] Switched to JOINT mode - selected joint: J{selectedJoint + 1}");
 				}
 			}
 
@@ -254,6 +262,7 @@ namespace RobotArm
 				if (Input.GetKeyDown(jointSelectKeys[i]))
 				{
 					selectedJoint = i;
+					Debug.Log($"[KeyboardInput] Selected J{selectedJoint + 1} ({jointSelectKeys[i]})");
 				}
 			}
 
