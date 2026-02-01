@@ -16,8 +16,9 @@ namespace RobotArm
         public Transform targetObject;
         public Transform dropOffZone;
 
-        [Header("Spawn Settings")]
-        public Transform objectSpawnArea;
+        [Tooltip("Spawn area for the target object")]
+        public Vector3 objectSpawnAreaMin = new Vector3(-0.5f, 0.1f, -0.5f);
+        public Vector3 objectSpawnAreaMax = new Vector3(0.5f, 0.1f, 0.5f);
 
         [Header("Visual")]
         [Tooltip("Unique color for this environment's drop zone")]
@@ -93,19 +94,43 @@ namespace RobotArm
         }
 
         /// <summary>
+        /// Get a random spawn position within the configured spawn area bounds.
+        /// Returns position in local space (relative to environment root).
+        /// </summary>
+        public Vector3 GetRandomSpawnPosition()
+        {
+            return new Vector3(
+                Random.Range(objectSpawnAreaMin.x, objectSpawnAreaMax.x),
+                Random.Range(objectSpawnAreaMin.y, objectSpawnAreaMax.y),
+                Random.Range(objectSpawnAreaMin.z, objectSpawnAreaMax.z)
+            );
+        }
+
+        /// <summary>
         /// Create a duplicate of this environment at the specified position
         /// </summary>
         public static TrainingEnvironment Duplicate(TrainingEnvironment source, Vector3 position)
         {
             GameObject copy = Instantiate(source.gameObject, position, Quaternion.identity);
             TrainingEnvironment env = copy.GetComponent<TrainingEnvironment>();
-            
+
             // Assign a random color to distinguish environments
             env.environmentColor = Random.ColorHSV(0f, 1f, 0.5f, 1f, 0.5f, 1f);
-            
+
             return env;
         }
+
+#if UNITY_EDITOR
+        private void OnDrawGizmos()
+        {
+            // Draw spawn area bounds
+            Gizmos.color = Color.yellow;
+            Vector3 center = transform.TransformPoint((objectSpawnAreaMin + objectSpawnAreaMax) / 2f);
+            Vector3 size = objectSpawnAreaMax - objectSpawnAreaMin;
+            Gizmos.DrawWireCube(center, size);
+        }
+#endif
     }
-    
-    
+
+
 }

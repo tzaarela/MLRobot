@@ -5038,6 +5038,8 @@ MonoBehaviour:
   targetObject: {fileID: 1381363180}
   dropOffZone: {fileID: 275692514}
   objectSpawnArea: {fileID: 0}
+  objectSpawnAreaMin: {x: 0.95, y: 0.1, z: 0.35}
+  objectSpawnAreaMax: {x: 1.43, y: 0.1, z: 1.33}
   environmentColor: {r: 0, g: 1, b: 0, a: 1}
   showDebugLogs: 0
 --- !u!4 &1978629291
@@ -5837,7 +5839,7 @@ PrefabInstance:
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_VersionIndex
-      value: 135
+      value: 138
       objectReference: {fileID: 0}
     - target: {fileID: 8680220112687307225, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}

@@ -81,10 +81,6 @@ namespace RobotArm
 		[Range(1f, 100f)]
 		public float cartesianOrientationActionScale = 20f;
 
-		[Tooltip("Spawn area for the target object")]
-		public Vector3 objectSpawnAreaMin = new Vector3(-0.5f, 0.1f, -0.5f);
-		public Vector3 objectSpawnAreaMax = new Vector3(0.5f, 0.1f, 0.5f);
-
 		[Header("Reward Settings")]
 		[Tooltip("Reward for successfully completing task (object stays in zone for full duration)")]
 		public float successReward = 1.0f;
@@ -287,12 +283,10 @@ namespace RobotArm
 				robotController.SetMagnetActive(false);
 			}
 
-			// Randomize position within spawn area
-			Vector3 randomLocalPos = new Vector3(
-				Random.Range(objectSpawnAreaMin.x, objectSpawnAreaMax.x),
-				Random.Range(objectSpawnAreaMin.y, objectSpawnAreaMax.y),
-				Random.Range(objectSpawnAreaMin.z, objectSpawnAreaMax.z)
-			);
+			// Get random spawn position from environment
+			Vector3 randomLocalPos = trainingEnvironment != null
+				? trainingEnvironment.GetRandomSpawnPosition()
+				: Vector3.zero;
 
 			// Randomize y-rotation of object
 			targetObject.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
@@ -938,11 +932,11 @@ namespace RobotArm
 		private void OnDrawGizmos()
 		{
 			// Draw spawn area
-			if (environmentRoot != null)
+			if (environmentRoot != null && trainingEnvironment != null)
 			{
 				Gizmos.color = Color.yellow;
-				Vector3 center = environmentRoot.TransformPoint((objectSpawnAreaMin + objectSpawnAreaMax) / 2f);
-				Vector3 size = objectSpawnAreaMax - objectSpawnAreaMin;
+				Vector3 center = environmentRoot.TransformPoint((trainingEnvironment.objectSpawnAreaMin + trainingEnvironment.objectSpawnAreaMax) / 2f);
+				Vector3 size = trainingEnvironment.objectSpawnAreaMax - trainingEnvironment.objectSpawnAreaMin;
 				Gizmos.DrawWireCube(center, size);
 			}
 
