@@ -401,15 +401,12 @@ namespace RobotArm
 						worldPositionDelta = toolRotation * positionDelta;
 					}
 
-					// Apply ONLY position movement (skip rotation for now to reduce IK calls)
 					cartesianController.MoveWorld(worldPositionDelta, Time.fixedDeltaTime);
 
-					// Optionally apply rotation if actions are significant
-					// Commenting out rotation for now to reduce IK failures
-					// if (Mathf.Abs(deltaRoll) > 0.01f || Mathf.Abs(deltaPitch) > 0.01f || Mathf.Abs(deltaYaw) > 0.01f)
-					// {
-					// 	cartesianController.RotateCartesian(deltaRoll, deltaPitch, deltaYaw, Time.fixedDeltaTime);
-					// }
+					if (Mathf.Abs(deltaRoll) > 0.01f || Mathf.Abs(deltaPitch) > 0.01f || Mathf.Abs(deltaYaw) > 0.01f)
+					{
+						cartesianController.RotateCartesian(deltaRoll, deltaPitch, deltaYaw, Time.fixedDeltaTime);
+					}
 				}
 				else
 				{
