@@ -5599,6 +5599,26 @@ PrefabInstance:
       propertyPath: joints.Array.data[2].minAngle
       value: -140
       objectReference: {fileID: 0}
+    - target: {fileID: 1550228477621720421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: joints.Array.data[3].maxAngle
+      value: 200
+      objectReference: {fileID: 0}
+    - target: {fileID: 1550228477621720421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: joints.Array.data[3].minAngle
+      value: -200
+      objectReference: {fileID: 0}
+    - target: {fileID: 1550228477621720421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: joints.Array.data[5].maxAngle
+      value: 200
+      objectReference: {fileID: 0}
+    - target: {fileID: 1550228477621720421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: joints.Array.data[5].minAngle
+      value: -200
+      objectReference: {fileID: 0}
     - target: {fileID: 3020551384343974421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_BehaviorType
@@ -5757,12 +5777,12 @@ PrefabInstance:
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: angularSpeed
-      value: 2
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: maxIterations
-      value: 31
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5923,6 +5943,26 @@ PrefabInstance:
         type: 3}
       propertyPath: alignmentRewardScale
       value: 0.08
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: objectSpawnAreaMax.x
+      value: 1.37
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: objectSpawnAreaMax.z
+      value: 1.21
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: objectSpawnAreaMin.x
+      value: 0.91
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: objectSpawnAreaMin.z
+      value: 0.35
       objectReference: {fileID: 0}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
