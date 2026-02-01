@@ -30,7 +30,7 @@ namespace RobotArm
 	///   V - Toggle coordinate frame (World/Tool)
 	///   +/- - Adjust speed (0.2x to 5.0x in 0.2x steps)
 	/// </summary>
-	public class RobotKeyboardInputEnhanced: MonoBehaviour
+	public class RobotKeyboard: MonoBehaviour
 	{
 		[Header("References")]
 		[Tooltip("The robot controller to drive")]
