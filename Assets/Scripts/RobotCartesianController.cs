@@ -504,6 +504,9 @@ namespace RobotArm
 				}
 			}
 
+			// Sync target angles to prevent smooth movement from interpolating to old values
+			robotController.SyncTargetAnglesToCurrent();
+
 			// Restore original smooth movement setting
 			robotController.useSmoothMovement = originalSmoothSetting;
 

@@ -3880,9 +3880,14 @@ MonoBehaviour:
   hasUpgradedFromAgentParameters: 1
   MaxStep: 0
   robotController: {fileID: 1550228477621720421}
+  cartesianController: {fileID: 6426305982252468227}
   targetObject: {fileID: 0}
   dropOffZone: {fileID: 0}
   environmentRoot: {fileID: 0}
+  trainingEnvironment: {fileID: 0}
+  movementMode: 1
+  cartesianPositionActionScale: 10
+  cartesianOrientationActionScale: 5
   objectSpawnAreaMin: {x: 0.68, y: 0.1, z: 0.32}
   objectSpawnAreaMax: {x: 1.36, y: 0.1, z: 1.1}
   successReward: 1
@@ -3910,13 +3915,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   robotController: {fileID: 1550228477621720421}
   linearSpeed: 0.1
+  angularSpeed: 1.5
   maxStepSize: 0.01
-  dampingFactor: 0.1
-  maxIterations: 10
+  dampingFactor: 0.5
+  maxIterations: 30
   convergenceThreshold: 0.001
   maxReachDistance: 2
+  minReachDistance: 0.95
+  groundPlaneHeight: 0.3
+  maxReachSafetyFactor: 0.95
   enforceWorkspaceLimits: 1
-  showDebugInfo: 1
+  showDebugInfo: 0
   showDebugGizmos: 1
 --- !u!114 &6121877404789220280
 MonoBehaviour:
@@ -3933,6 +3942,7 @@ MonoBehaviour:
   robotController: {fileID: 1550228477621720421}
   cartesianController: {fileID: 6426305982252468227}
   pickAndPlaceAgent: {fileID: 8836222406235277980}
+  trainingEnvironment: {fileID: 0}
   jointRotationSpeedMultiplier: 1
   cartesianSpeedMultiplier: 1
   cartesianRotationSpeed: 1
@@ -3958,7 +3968,7 @@ MonoBehaviour:
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 6
-      BranchSizes: 02000000
+      BranchSizes: 0200000003000000
     VectorActionSize: 
     VectorActionDescriptions: []
     VectorActionSpaceType: 0
