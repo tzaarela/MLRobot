@@ -226,6 +226,11 @@ namespace RobotArm
 						minSpeedMultiplier,
 						maxSpeedMultiplier
 					);
+					cartesianRotationSpeed = Mathf.Clamp(
+						cartesianRotationSpeed + speedAdjustmentStep,
+						minSpeedMultiplier,
+						maxSpeedMultiplier
+					);
 					Debug.Log($"[KeyboardInput] Cartesian speed: {cartesianSpeedMultiplier:F1}x");
 				}
 			}
@@ -246,6 +251,11 @@ namespace RobotArm
 				{
 					cartesianSpeedMultiplier = Mathf.Clamp(
 						cartesianSpeedMultiplier - speedAdjustmentStep,
+						minSpeedMultiplier,
+						maxSpeedMultiplier
+					);
+					cartesianRotationSpeed = Mathf.Clamp(
+						cartesianRotationSpeed - speedAdjustmentStep,
 						minSpeedMultiplier,
 						maxSpeedMultiplier
 					);
