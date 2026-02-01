@@ -5047,6 +5047,16 @@ PrefabInstance:
       propertyPath: joints.Array.data[2].minAngle
       value: -140
       objectReference: {fileID: 0}
+    - target: {fileID: 3020551384343974421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: m_BehaviorType
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 3020551384343974421, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: m_BrainParameters.VectorObservationSize
+      value: 33
+      objectReference: {fileID: 0}
     - target: {fileID: 4125369518819724912, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_LocalPosition.x
@@ -5124,8 +5134,8 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
-      propertyPath: maxIterations
-      value: 20
+      propertyPath: showDebugInfo
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5136,21 +5146,6 @@ PrefabInstance:
         type: 3}
       propertyPath: toolDownAxis.z
       value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
-        type: 3}
-      propertyPath: maxReachDistance
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
-        type: 3}
-      propertyPath: minReachDistance
-      value: 0.95
-      objectReference: {fileID: 0}
-    - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
-        type: 3}
-      propertyPath: groundPlaneHeight
-      value: 0.3
       objectReference: {fileID: 0}
     - target: {fileID: 6426305982252468227, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5170,7 +5165,7 @@ PrefabInstance:
     - target: {fileID: 8364518927713188843, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
       propertyPath: m_VersionIndex
-      value: 99
+      value: 117
       objectReference: {fileID: 0}
     - target: {fileID: 8680220112687307225, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
@@ -5214,6 +5209,11 @@ PrefabInstance:
       objectReference: {fileID: 275692514}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: movementMode
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: targetObject
       value: 
       objectReference: {fileID: 1381363180}
@@ -5222,6 +5222,11 @@ PrefabInstance:
       propertyPath: environmentRoot
       value: 
       objectReference: {fileID: 1978629291}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
+      propertyPath: trainingEnvironment
+      value: 
+      objectReference: {fileID: 1978629290}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

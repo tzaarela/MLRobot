@@ -6,14 +6,54 @@ using Unity.MLAgents.Sensors;
 namespace RobotArm
 {
 	/// <summary>
+	/// Movement modes for the robot agent
+	/// </summary>
+	public enum MovementMode
+	{
+		Joint = 0,           // Direct joint control (default)
+		CartesianWorld = 1,  // Cartesian movement in world space
+		CartesianTool = 2,   // Cartesian movement in tool/local space
+		Auto = 3             // Agent learns to switch between modes
+	}
+
+	/// <summary>
 	/// ML-Agents agent for robot arm pick and place task.
 	/// Learns to pick up a cube and place it in a target zone.
+	///
+	/// MOVEMENT MODES:
+	/// - Joint: Direct control of joint angles (traditional approach)
+	/// - CartesianWorld: Control TCP position/orientation in world space using IK
+	/// - CartesianTool: Control TCP position/orientation in tool-local space using IK
+	/// - Auto: Agent learns to switch between Joint/CartesianWorld/CartesianTool modes
+	///
+	/// BEHAVIOR PARAMETERS CONFIGURATION (Unity Inspector):
+	///
+	/// Observations: 30 (Vector)
+	///   - 6: Joint angles (normalized)
+	///   - 7: Tool state (position, orientation, distance to drop zone)
+	///   - 7: Target object state (position, orientation, distance)
+	///   - 4: Goal state (drop zone position, distance)
+	///   - 3: Gripper state (magnet on/off, holding object, can activate)
+	///   - 3: Current movement mode (one-hot: Joint/CartesianWorld/CartesianTool)
+	///
+	/// Actions:
+	///   Continuous: 6
+	///     - Joint mode: 6 joint angle deltas (normalized -1 to 1)
+	///     - Cartesian modes: [deltaX, deltaY, deltaZ, deltaRoll, deltaPitch, deltaYaw]
+	///
+	///   Discrete: 2 branches
+	///     - Branch 0: Magnet control (2 values: 0=off, 1=on)
+	///     - Branch 1: Mode selection (3 values: 0=Joint, 1=CartesianWorld, 2=CartesianTool)
+	///                 Only used when movementMode = Auto
 	/// </summary>
 	public class RobotPickAndPlaceAgent: Agent
 	{
 		[Header("References")]
 		[Tooltip("The robot controller this agent controls")]
 		public RobotController robotController;
+
+		[Tooltip("Cartesian controller for IK-based movement")]
+		public RobotCartesianController cartesianController;
 
 		[Tooltip("The object to pick up")]
 		public Transform targetObject;
@@ -27,6 +67,18 @@ namespace RobotArm
 
 		[Tooltip("Training environment reference (auto-assigned)")]
 		public TrainingEnvironment trainingEnvironment;
+
+		[Header("Movement Mode")]
+		[Tooltip("Select the movement mode for this agent")]
+		public MovementMode movementMode = MovementMode.Joint;
+
+		[Tooltip("Action scale multiplier for Cartesian position movements (increases sensitivity)")]
+		[Range(1f, 100f)]
+		public float cartesianPositionActionScale = 50f;
+
+		[Tooltip("Action scale multiplier for Cartesian orientation movements (increases sensitivity)")]
+		[Range(1f, 100f)]
+		public float cartesianOrientationActionScale = 20f;
 
 		[Tooltip("Spawn area for the target object")]
 		public Vector3 objectSpawnAreaMin = new Vector3(-0.5f, 0.1f, -0.5f);
@@ -85,6 +137,9 @@ namespace RobotArm
 		private float dropZoneTimer = 0f;
 		private bool hasDroppedInZone = false;
 
+		// Movement mode tracking (for Auto mode)
+		private MovementMode currentActiveMode = MovementMode.Joint;
+
 		private void Awake()
 		{
 			dropZoneSize = dropOffZone.GetComponent<DropZoneVisualizer>().dropZoneSize;
@@ -104,6 +159,21 @@ namespace RobotArm
 			{
 				trainingEnvironment = GetComponentInParent<TrainingEnvironment>();
 			}
+
+			// Auto-find CartesianController if not assigned
+			if (cartesianController == null)
+			{
+				cartesianController = GetComponent<RobotCartesianController>();
+			}
+
+			// Subscribe cartesian controller to environment reset
+			if (cartesianController != null && trainingEnvironment != null)
+			{
+				cartesianController.SubscribeToEnvironment(trainingEnvironment);
+			}
+
+			// Initialize current mode based on movement mode setting
+			currentActiveMode = (movementMode == MovementMode.Auto) ? MovementMode.Joint : movementMode;
 		}
 
 		public override void OnEpisodeBegin()
@@ -117,6 +187,9 @@ namespace RobotArm
 			dropZoneTimer = 0f;
 			hasDroppedInZone = false;
 
+			// Reset current mode (for Auto mode, start with Joint)
+			currentActiveMode = (movementMode == MovementMode.Auto) ? MovementMode.Joint : movementMode;
+
 			// Reset environment (robot + all subscribed components)
 			if (trainingEnvironment != null)
 			{
@@ -126,6 +199,12 @@ namespace RobotArm
 			{
 				// Fallback: manual reset if no training environment
 				robotController.ResetToStartPosition();
+			}
+
+			// Reset Cartesian controller target to current robot pose
+			if (cartesianController != null)
+			{
+				cartesianController.ResetTarget();
 			}
 
 			// Reset and randomize object position
@@ -216,25 +295,105 @@ namespace RobotArm
 			sensor.AddObservation(robotController.IsHoldingObject() ? 1f : 0f);
 			sensor.AddObservation(robotController.magnet.CanActivateMagnet);
 
+			// === Current Movement Mode (3 values - one-hot encoding) ===
+			// Only relevant for Auto mode, but always included for consistent observation space
+			sensor.AddObservation(currentActiveMode == MovementMode.Joint ? 1f : 0f);
+			sensor.AddObservation(currentActiveMode == MovementMode.CartesianWorld ? 1f : 0f);
+			sensor.AddObservation(currentActiveMode == MovementMode.CartesianTool ? 1f : 0f);
 
-			// Total: 6 + 7 + 7 + 4 + 3 = 27 observations
+			// Total: 6 + 7 + 7 + 4 + 3 + 3 = 30 observations
 		}
 
 		public override void OnActionReceived(ActionBuffers actions)
 		{
 			currentStep++;
 
-			// Get continuous actions for joint movement
-			float[] jointDeltas = new float[6];
-			for (int i = 0; i < 6; i++)
+			// === Mode Selection (Auto mode only) ===
+			if (movementMode == MovementMode.Auto)
 			{
-				jointDeltas[i] = actions.ContinuousActions[i];
+				// Discrete action branch 1: mode selection (0=Joint, 1=CartesianWorld, 2=CartesianTool)
+				int modeAction = actions.DiscreteActions[1];
+				MovementMode newMode = (MovementMode)modeAction;
+
+				// Switch mode if different
+				if (newMode != currentActiveMode)
+				{
+					currentActiveMode = newMode;
+
+					// Reset Cartesian target when switching to Cartesian modes
+					if ((currentActiveMode == MovementMode.CartesianWorld || currentActiveMode == MovementMode.CartesianTool)
+						&& cartesianController != null)
+					{
+						cartesianController.ResetTarget();
+					}
+				}
 			}
 
-			// Apply joint movements
-			robotController.ApplyJointDeltas(jointDeltas, Time.fixedDeltaTime);
+			// === Apply Movement Based on Current Active Mode ===
+			if (currentActiveMode == MovementMode.Joint)
+			{
+				// Joint mode: 6 continuous actions control joint angle deltas
+				float[] jointDeltas = new float[6];
+				for (int i = 0; i < 6; i++)
+				{
+					jointDeltas[i] = actions.ContinuousActions[i];
+				}
+				robotController.ApplyJointDeltas(jointDeltas, Time.fixedDeltaTime);
+			}
+			else if (currentActiveMode == MovementMode.CartesianWorld || currentActiveMode == MovementMode.CartesianTool)
+			{
+				// Cartesian mode: 6 continuous actions = 3 position deltas (XYZ) + 3 orientation deltas (RPY in radians)
+				if (cartesianController != null)
+				{
+					// Scale actions for faster learning (actions are normalized -1 to 1)
+					float deltaX = actions.ContinuousActions[0] * cartesianPositionActionScale;
+					float deltaY = actions.ContinuousActions[1] * cartesianPositionActionScale;
+					float deltaZ = actions.ContinuousActions[2] * cartesianPositionActionScale;
+					float deltaRoll = actions.ContinuousActions[3] * cartesianOrientationActionScale;
+					float deltaPitch = actions.ContinuousActions[4] * cartesianOrientationActionScale;
+					float deltaYaw = actions.ContinuousActions[5] * cartesianOrientationActionScale;
 
-			// Discrete action for magnet (0 = off, 1 = on)
+					// Calculate position delta in appropriate frame
+					Vector3 positionDelta = new Vector3(deltaX, deltaY, deltaZ);
+					Vector3 worldPositionDelta;
+
+					if (currentActiveMode == MovementMode.CartesianWorld)
+					{
+						// World space - use delta directly
+						worldPositionDelta = positionDelta;
+					}
+					else // CartesianTool
+					{
+						// Tool space - transform delta to world space
+						Quaternion toolRotation = robotController.GetToolRotation();
+						worldPositionDelta = toolRotation * positionDelta;
+					}
+
+					// Apply ONLY position movement (skip rotation for now to reduce IK calls)
+					cartesianController.MoveWorld(worldPositionDelta, Time.fixedDeltaTime);
+
+					// Optionally apply rotation if actions are significant
+					// Commenting out rotation for now to reduce IK failures
+					// if (Mathf.Abs(deltaRoll) > 0.01f || Mathf.Abs(deltaPitch) > 0.01f || Mathf.Abs(deltaYaw) > 0.01f)
+					// {
+					// 	cartesianController.RotateCartesian(deltaRoll, deltaPitch, deltaYaw, Time.fixedDeltaTime);
+					// }
+				}
+				else
+				{
+					Debug.LogWarning("[Agent] Cartesian mode selected but no CartesianController assigned! Falling back to joint control.");
+					// Fallback to joint control if Cartesian controller missing
+					float[] jointDeltas = new float[6];
+					for (int i = 0; i < 6; i++)
+					{
+						jointDeltas[i] = actions.ContinuousActions[i];
+					}
+					robotController.ApplyJointDeltas(jointDeltas, Time.fixedDeltaTime);
+				}
+			}
+
+			// === Magnet Control ===
+			// Discrete action branch 0: magnet (0 = off, 1 = on)
 			// Only control magnet if not in Heuristic mode (let keyboard handle it in Heuristic)
 			if (GetComponent<Unity.MLAgents.Policies.BehaviorParameters>().BehaviorType != Unity.MLAgents.Policies.BehaviorType.HeuristicOnly)
 			{
@@ -494,7 +653,7 @@ namespace RobotArm
 		public override void Heuristic(in ActionBuffers actionsOut)
 		{
 			// This allows the keyboard controller to work alongside ML training
-			// The keyboard input is handled separately by RobotKeyboardInput
+			// The keyboard input is handled separately by RobotKeyboardInputEnhanced
 			// Here we just provide neutral actions
 
 			var continuousActions = actionsOut.ContinuousActions;
@@ -504,7 +663,10 @@ namespace RobotArm
 			}
 
 			var discreteActions = actionsOut.DiscreteActions;
+			// Branch 0: Magnet state
 			discreteActions[0] = robotController.magnet.IsActive ? 1 : 0;
+			// Branch 1: Current movement mode (for Auto mode)
+			discreteActions[1] = (int)currentActiveMode;
 		}
 
 		// Helper methods for multi-environment support

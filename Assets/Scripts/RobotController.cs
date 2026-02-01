@@ -66,9 +66,22 @@ namespace RobotArm
 			return angles;
 		}
 
-		/// <summary>
-		/// Set joint angle directly (in degrees)
-		/// </summary>
+
+	/// <summary>
+	/// Synchronize target angles with current angles.
+	/// Used after IK to prevent smooth movement from interpolating back to old targets.
+	/// </summary>
+	public void SyncTargetAnglesToCurrent()
+	{
+		for (int i = 0; i < joints.Length; i++)
+		{
+			targetAngles[i] = joints[i].currentAngle;
+		}
+	}
+
+	/// <summary>
+	/// Set joint angle directly (in degrees)
+	/// </summary>
 		public void SetJointAngle(int jointIndex, float angle)
 		{
 			if (jointIndex < 0 || jointIndex >= joints.Length) return;
