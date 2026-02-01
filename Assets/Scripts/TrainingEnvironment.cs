@@ -20,6 +20,14 @@ namespace RobotArm
         public Vector3 objectSpawnAreaMin = new Vector3(-0.5f, 0.1f, -0.5f);
         public Vector3 objectSpawnAreaMax = new Vector3(0.5f, 0.1f, 0.5f);
 
+        [Header("Drop Zone Settings")]
+        [Tooltip("Check if object must be fully contained (true) or just center inside (false)")]
+        public bool requireFullContainment = true;
+
+        [Tooltip("Time (in seconds) the object must stay in drop zone before success")]
+        [Range(0f, 5f)]
+        public float dropZoneStayDuration = 1f;
+
         [Header("Visual")]
         [Tooltip("Unique color for this environment's drop zone")]
         public Color environmentColor = Color.green;

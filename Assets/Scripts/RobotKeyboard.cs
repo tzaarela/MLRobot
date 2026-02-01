@@ -359,11 +359,11 @@ namespace RobotArm
 			// J6 angle is preserved during position movement (see MoveCartesian)
 			if (Input.GetKey(KeyCode.Keypad7))
 			{
-				robotController.RotateJointNormalized(5, jointRotationSpeedMultiplier * 2, Time.deltaTime);
+				robotController.RotateJointNormalized(5, jointRotationSpeedMultiplier, Time.deltaTime);
 			}
 			else if (Input.GetKey(KeyCode.Keypad9))
 			{
-				robotController.RotateJointNormalized(5, -jointRotationSpeedMultiplier * 2, Time.deltaTime);
+				robotController.RotateJointNormalized(5, -jointRotationSpeedMultiplier, Time.deltaTime);
 			}
 
 			// Apply position movement

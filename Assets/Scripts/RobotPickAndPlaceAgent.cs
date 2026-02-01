@@ -141,14 +141,6 @@ namespace RobotArm
 		[Tooltip("Height below which object is considered fallen")]
 		public float objectFallThreshold = 0.05f;
 
-		[Header("Drop Zone Settings")]
-		[Tooltip("Check if object must be fully contained (true) or just center inside (false)")]
-		public bool requireFullContainment = true;
-
-		[Tooltip("Time (in seconds) the object must stay in drop zone before success")]
-		[Range(0f, 5f)]
-		public float dropZoneStayDuration = 1f;
-
 		[Header("Debug")]
 		public bool showDebugLogs = true;
 
@@ -697,11 +689,13 @@ namespace RobotArm
 
 					if (showDebugLogs && currentStep % 50 == 0)
 					{
-						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {dropZoneStayDuration:F2}s | At home: {isAtHome} | Joint dist: {CalculateJointDistanceToHome():F1}°");
+						float stayDuration = trainingEnvironment != null ? trainingEnvironment.dropZoneStayDuration : 1f;
+						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {stayDuration:F2}s | At home: {isAtHome} | Joint dist: {CalculateJointDistanceToHome():F1}°");
 					}
 
 					// Success! Timer completed
-					if (dropZoneTimer >= dropZoneStayDuration)
+					float requiredDuration = trainingEnvironment != null ? trainingEnvironment.dropZoneStayDuration : 1f;
+					if (dropZoneTimer >= requiredDuration)
 					{
 						// Base success reward (50%)
 						float baseReward = successReward * 0.5f;
@@ -796,7 +790,7 @@ namespace RobotArm
 			// Get drop zone bounds in world space
 			Bounds dropZoneBounds = new Bounds(dropOffZone.position, dropZoneSize);
 
-			if (requireFullContainment)
+			if (trainingEnvironment != null && trainingEnvironment.requireFullContainment)
 			{
 				// Check if entire object bounds are contained within drop zone
 				Bounds objectBounds = GetObjectBounds(targetObject);
