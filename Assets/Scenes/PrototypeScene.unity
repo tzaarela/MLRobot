@@ -5280,8 +5280,13 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}
+      propertyPath: maxEpisodeSteps
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
+        type: 3}
       propertyPath: objectFallThreshold
-      value: 0.22
+      value: 0.2
       objectReference: {fileID: 0}
     - target: {fileID: 8836222406235277980, guid: eb5e82050ff43ea4d9cbe4a533caea2e,
         type: 3}

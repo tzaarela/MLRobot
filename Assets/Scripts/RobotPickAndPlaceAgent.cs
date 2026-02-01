@@ -86,8 +86,14 @@ namespace RobotArm
 		public Vector3 objectSpawnAreaMax = new Vector3(0.5f, 0.1f, 0.5f);
 
 		[Header("Reward Settings")]
-		[Tooltip("Reward for successfully placing object in drop zone")]
+		[Tooltip("Reward for successfully completing task (object stays in zone for full duration)")]
 		public float successReward = 1.0f;
+
+		[Tooltip("Big reward when object is first placed correctly in drop zone")]
+		public float placementReward = 0.5f;
+
+		[Tooltip("Continuous reward per step while object stays in drop zone")]
+		public float inZoneRewardPerStep = 0.01f;
 
 		[Tooltip("Penalty for dropping object outside drop zone")]
 		public float dropPenalty = -0.5f;
@@ -566,9 +572,12 @@ namespace RobotArm
 				// Check if dropped in goal zone
 				if (IsObjectInDropZone())
 				{
+					// Big reward for successful placement
+					AddReward(placementReward);
+
 					if (showDebugLogs)
 					{
-						Debug.Log($"[Dropped in zone] Starting timer: {dropZoneStayDuration}s");
+						Debug.Log($"[Placed in zone] Reward: +{placementReward} | Starting timer: {dropZoneStayDuration}s");
 					}
 					isTimerActive = true;
 					dropZoneTimer = 0f;
@@ -593,9 +602,12 @@ namespace RobotArm
 				{
 					dropZoneTimer += Time.fixedDeltaTime;
 
+					// Continuous reward for keeping object in zone
+					AddReward(inZoneRewardPerStep);
+
 					if (showDebugLogs && currentStep % 50 == 0)
 					{
-						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {dropZoneStayDuration:F2}s");
+						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {dropZoneStayDuration:F2}s | In-zone reward: +{inZoneRewardPerStep}/step");
 					}
 
 					// Success! Object stayed in zone for required duration
