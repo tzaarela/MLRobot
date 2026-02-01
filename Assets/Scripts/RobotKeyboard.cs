@@ -18,9 +18,9 @@ namespace RobotArm
 	///     W/A/S/D - Move in XZ plane (forward/left/back/right)
 	///     Q/E - Move in Y axis (down/up)
 	///   ORIENTATION:
-	///     Arrow Up/Down - Pitch (rotate around Y)
-	///     Arrow Left/Right - Yaw (rotate around Z)
-	///     Numpad 7/9 - Roll (rotate around X)
+	///     Arrow Up/Down - Yaw (rotate around Z via IK)
+	///     Arrow Left/Right - Pitch (rotate around Y via IK)
+	///     Numpad 7/9 - Joint 6 rotation (around its own local axis)
 	///   +/- - Increase/Decrease movement speed
 	///   Space - Toggle magnet
 	///   Backspace - Reset robot
@@ -332,37 +332,37 @@ namespace RobotArm
 				movement.y = -1f; // Down
 			}
 
-			// ORIENTATION CONTROL: Arrow keys + Numpad 7/9
+			// ORIENTATION CONTROL: Arrow keys (via IK)
 
-			// Roll (around X axis) 
+			// Yaw (around Z axis)
 			if (Input.GetKey(KeyCode.UpArrow) || Input.GetKey(KeyCode.Keypad8))
 			{
-				rotation.z = 1f; // Yaw left
+				rotation.z = 1f;
 			}
 			else if (Input.GetKey(KeyCode.DownArrow) || Input.GetKey(KeyCode.Keypad5))
 			{
-				rotation.z = -1f; // Yaw right
+				rotation.z = -1f;
 			}
 
-			// Yaw (around Z axis)t
+			// Pitch (around Y axis)
 			if (Input.GetKey(KeyCode.LeftArrow) || Input.GetKey(KeyCode.Keypad4))
 			{
-				rotation.x = 1f; // Roll left
+				rotation.x = 1f;
 			}
 			else if (Input.GetKey(KeyCode.RightArrow) || Input.GetKey(KeyCode.Keypad6))
 			{
-				rotation.x = -1f; // Roll right
+				rotation.x = -1f;
 			}
 
-
-			// Pitch (around Y axis)
+			// JOINT 6 DIRECT CONTROL: Numpad 7/9
+			// Rotates joint 6 around its own local axis (bypasses IK)
 			if (Input.GetKey(KeyCode.Keypad7))
-			{ 
-				rotation.y = 1f; // Pitch up{
+			{
+				robotController.RotateJointNormalized(5, jointRotationSpeedMultiplier, Time.deltaTime);
 			}
 			else if (Input.GetKey(KeyCode.Keypad9))
 			{
-				rotation.y = -1f; // Pitch down
+				robotController.RotateJointNormalized(5, -jointRotationSpeedMultiplier, Time.deltaTime);
 			}
 
 			// Apply position movement
@@ -514,10 +514,13 @@ namespace RobotArm
 				GUILayout.Label("  <b>Q/E</b>: Move Down/Up", labelStyle);
 
 				GUILayout.Space(5);
-				GUILayout.Label("<b>Orientation (Arrows+Numpad):</b>", headerStyle);
-				GUILayout.Label("  <b>↑/↓</b>: Pitch (Y axis)", labelStyle);
-				GUILayout.Label("  <b>←/→</b>: Yaw (Z axis)", labelStyle);
-				GUILayout.Label("  <b>Numpad 7/9</b>: Roll (X axis)", labelStyle);
+				GUILayout.Label("<b>Orientation (Arrows - IK):</b>", headerStyle);
+				GUILayout.Label("  <b>↑/↓</b>: Yaw (Z axis via IK)", labelStyle);
+				GUILayout.Label("  <b>←/→</b>: Pitch (Y axis via IK)", labelStyle);
+
+				GUILayout.Space(5);
+				GUILayout.Label("<b>Joint 6 Control (Numpad):</b>", headerStyle);
+				GUILayout.Label("  <b>Numpad 7/9</b>: Rotate J6 (local axis)", labelStyle);
 			}
 
 			GUILayout.Space(10);
