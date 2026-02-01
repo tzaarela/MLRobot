@@ -54,11 +54,12 @@ Unity 2022.3.50f1 / URP
 - Toggling of the tool on and off. The first tool will be a magnet.
 
 ### Core Systems
-- **RobotController**: Handles all movement. Both agent and player hook up to this.
+- **RobotController**: Handles core control of the robot. Both agent and player hook up to this.
+- **RobotCartesianController**: Handles cartesian movement
 - **LevelController**: Manages episode lifecycle, spawn randomization, timeout tracking, error monitoring, out-of-bounds detection, and drop zone confirmation
 - **ProgressionController**: Tracks completion times (best/average/session), categorizes errors by type, calculates scores, persists data to JSON
 - **Agent System** (ML-Agent): Training functionality using PPO decision model
-- **Keyboard Controller**: Human player robot control
+- **RobotKeyboard**: Human player robot control
 - **ToolController**: Magnetic gripper toggle
 - **UI Systems**:
   - Keyboard controls overlay (during play)
@@ -66,7 +67,45 @@ Unity 2022.3.50f1 / URP
   - Training stats overlay (real-time metrics during ML training)
 
 ### Movement
-   
+
+The robot supports two control modes: **Joint Mode** and **Cartesian Mode**.
+
+#### Joint Mode
+- Direct control of individual joint angles
+- Number keys 1-6 rotate corresponding joints
+- Simple, predictable movement
+- Used for precise joint positioning and testing
+
+#### Cartesian Mode
+Cartesian mode provides intuitive position and orientation control in 3D space using inverse kinematics (IK).
+
+**Position Control (WASD + Q/E):**
+- Move the tool tip in 3D space
+- Available in two reference frames:
+  - **World Frame**: Movement relative to world axes (default)
+  - **Tool Frame**: Movement relative to tool's local axes
+- Toggle between frames with Tab key
+- IK solver calculates joint angles to reach target position
+- **J6 is locked during position movement** to allow simultaneous manual rotation
+
+**Orientation Control (Arrow Keys):**
+- Control tool orientation via IK
+- Up/Down arrows: Yaw rotation
+- Left/Right arrows: Pitch rotation
+- IK calculates all wrist joints (J4, J5, J6) to achieve target orientation
+
+**Direct J6 Control (Numpad 7/9):**
+- Bypasses IK to rotate J6 around its own axis
+- Works **simultaneously** with WASD position movement
+- Allows independent control: move position with WASD while rotating tool with numpad
+- J6 angle is preserved during IK position solving
+
+**Key Technical Details:**
+- Position movements use IK with J6 locked (5-DOF IK for joints 1-5)
+- Orientation movements use full 6-DOF IK (all joints including J6)
+- J6 manual control is preserved through smooth movement interpolation
+- Multiple inputs can be combined: WASD + numpad 7/9 work simultaneously
+
 ---
 
 ## 5. Current Development Phase
@@ -134,4 +173,5 @@ You are a **senior Unity gameplay engineer** assisting an experienced developer.
 
 - 2026‑01‑31: Initial planning.md created
 - 2026‑01‑31: Added detailed episode configuration, expanded core gameplay loop, documented missing systems (LevelController, ProgressionController, UI), updated development phase status
+- 2026‑02‑01: Documented movement system in section 4 (Joint Mode, Cartesian Mode, position/orientation control, simultaneous WASD + numpad J6 rotation)
 
