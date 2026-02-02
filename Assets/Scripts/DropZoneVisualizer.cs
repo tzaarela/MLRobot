@@ -127,7 +127,11 @@ namespace RobotArm
 
 			if (agent == null)
 			{
-				agent = TrainingEnvironment.Instance.agent;
+				TrainingEnvironment env = GetComponentInParent<TrainingEnvironment>();
+				if (env != null)
+				{
+					agent = env.agent;
+				}
 			}
 
 			// Determine color based on state

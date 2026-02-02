@@ -199,6 +199,12 @@ namespace RobotArm
 				cartesianController = GetComponent<RobotCartesianController>();
 			}
 
+			// Ensure CartesianController has proper robotController reference
+			if (cartesianController != null && cartesianController.robotController == null)
+			{
+				cartesianController.robotController = robotController;
+			}
+
 			// Subscribe cartesian controller to environment reset
 			if (cartesianController != null && trainingEnvironment != null)
 			{

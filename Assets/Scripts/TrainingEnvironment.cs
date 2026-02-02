@@ -40,31 +40,26 @@ namespace RobotArm
         // Reset event - components subscribe to this to handle their own reset
         public event System.Action OnEnvironmentReset;
 
-        public static TrainingEnvironment Instance;
-
         private void Awake()
         {
-
-            if (Instance == null)
-            {
-                Instance = this;
-            }
-            else
-            {
-                Destroy(gameObject);
-            }
-
             // Setup references if not assigned
             if (agent != null)
             {
                 agent.environmentRoot = transform;
-                
+
                 if (robotController != null)
                     agent.robotController = robotController;
                 if (targetObject != null)
                     agent.targetObject = targetObject;
                 if (dropOffZone != null)
                     agent.dropOffZone = dropOffZone;
+
+                // Wire up CartesianController to use this environment's robot
+                RobotCartesianController cartesianController = agent.GetComponent<RobotCartesianController>();
+                if (cartesianController != null && robotController != null)
+                {
+                    cartesianController.robotController = robotController;
+                }
             }
             
             // Set environment color

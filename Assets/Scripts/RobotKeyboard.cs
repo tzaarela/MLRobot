@@ -107,6 +107,29 @@ namespace RobotArm
 				return;
 			}
 
+			// Auto-find TrainingEnvironment if not assigned (do this first)
+			if (trainingEnvironment == null)
+			{
+				trainingEnvironment = GetComponentInParent<TrainingEnvironment>();
+			}
+
+			// Auto-find RobotController if not assigned
+			if (robotController == null)
+			{
+				robotController = GetComponentInParent<RobotController>();
+				if (robotController == null && trainingEnvironment != null)
+				{
+					robotController = trainingEnvironment.robotController;
+				}
+			}
+
+			if (robotController == null)
+			{
+				Debug.LogError("[KeyboardInput] No RobotController found!");
+				this.enabled = false;
+				return;
+			}
+
 			// Set initial mode
 			currentMode = startInCartesianMode ? ControlMode.Cartesian : ControlMode.Joint;
 
@@ -120,20 +143,22 @@ namespace RobotArm
 				}
 			}
 
-			// Auto-find TrainingEnvironment if not assigned
-			if (trainingEnvironment == null)
+			// Wire up CartesianController's robotController reference
+			if (cartesianController != null && cartesianController.robotController == null)
 			{
-				trainingEnvironment = GetComponentInParent<TrainingEnvironment>();
-				if (trainingEnvironment == null)
-				{
-					trainingEnvironment = FindObjectOfType<TrainingEnvironment>();
-				}
+				cartesianController.robotController = robotController;
 			}
 
 			// Subscribe cartesian controller to environment reset event
 			if (cartesianController != null && trainingEnvironment != null)
 			{
 				cartesianController.SubscribeToEnvironment(trainingEnvironment);
+			}
+
+			// Auto-find agent if not assigned
+			if (pickAndPlaceAgent == null)
+			{
+				pickAndPlaceAgent = GetComponent<RobotPickAndPlaceAgent>();
 			}
 
 			// Sync target angles if starting in Joint mode

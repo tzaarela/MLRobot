@@ -15,7 +15,7 @@ namespace RobotArm
 
 		[Header("Grid Settings")]
 		[Tooltip("Number of environments in X direction")]
-		public int gridX = 2;
+		public int gridX = 4;
 
 		[Tooltip("Number of environments in Z direction")]
 		public int gridZ = 2;
@@ -27,8 +27,11 @@ namespace RobotArm
 		[Tooltip("Create environments on start")]
 		public bool createOnStart = true;
 
-		[Tooltip("Disable template after creating copies")]
+		[Tooltip("Disable template after creating copies (ignored if keepTemplateForManualControl is true)")]
 		public bool disableTemplate = true;
+
+		[Tooltip("Keep template active for manual/keyboard control while duplicates train. Template should have BehaviorType=HeuristicOnly.")]
+		public bool keepTemplateForManualControl = false;
 
 		private List<TrainingEnvironment> environments = new List<TrainingEnvironment>();
 
@@ -59,15 +62,27 @@ namespace RobotArm
 			}
 			environments.Clear();
 
-			// Create grid of environments
-			Vector3 startPos = templateEnvironment.transform.position;
+			// Determine grid start position
+			Vector3 templatePos = templateEnvironment.transform.position;
+			Vector3 startPos;
 
+			if (keepTemplateForManualControl)
+			{
+				// Offset grid so template doesn't overlap with training environments
+				startPos = templatePos + new Vector3(spacing, 0, 0);
+			}
+			else
+			{
+				startPos = templatePos;
+			}
+
+			// Create grid of environments
 			for (int x = 0; x < gridX; x++)
 			{
 				for (int z = 0; z < gridZ; z++)
 				{
-					// Skip the first position if we're keeping the template
-					if (x == 0 && z == 0 && !disableTemplate)
+					// Skip the first position if we're keeping the template (legacy behavior)
+					if (x == 0 && z == 0 && !disableTemplate && !keepTemplateForManualControl)
 					{
 						environments.Add(templateEnvironment);
 						continue;
@@ -80,12 +95,22 @@ namespace RobotArm
 				}
 			}
 
-			if (disableTemplate)
+			// Handle template visibility
+			if (keepTemplateForManualControl)
+			{
+				// Keep template active for manual control
+				templateEnvironment.gameObject.SetActive(true);
+				Debug.Log($"Created {environments.Count} training environments + 1 manual control (template)");
+			}
+			else if (disableTemplate)
 			{
 				templateEnvironment.gameObject.SetActive(false);
+				Debug.Log($"Created {environments.Count} training environments");
 			}
-
-			Debug.Log($"Created {environments.Count} training environments");
+			else
+			{
+				Debug.Log($"Created {environments.Count} training environments (including template)");
+			}
 		}
 
 		[ContextMenu("Clear Environments")]

@@ -104,9 +104,15 @@ namespace RobotArm
 
 		private void Initialize()
 		{
+			// Auto-find RobotController if not assigned
 			if (robotController == null)
 			{
-				Debug.LogError("[CartesianController] No RobotController assigned!");
+				robotController = GetComponentInParent<RobotController>();
+			}
+
+			if (robotController == null)
+			{
+				Debug.LogError("[CartesianController] No RobotController assigned or found in parent!");
 				return;
 			}
 
