@@ -107,6 +107,9 @@ namespace RobotArm
 		[Tooltip("Reward scale for maintaining object alignment with drop zone rotation")]
 		public float alignmentRewardScale = 0.01f;
 
+		[Tooltip("Reward scale for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond)")]
+		public float uprightRewardScale = 0.02f;
+
 		[Tooltip("Reward scale for bringing object closer to goal")]
 		public float deliveryRewardScale = 0.02f;
 
@@ -577,9 +580,15 @@ namespace RobotArm
 				float alignmentReward = alignmentRewardScale * alignmentFactor;
 				AddReward(alignmentReward);
 
+				// Reward for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond 90°)
+				float uprightness = Vector3.Dot(targetObject.up, Vector3.up);
+				float uprightReward = uprightness * uprightRewardScale;
+				AddReward(uprightReward);
+
 				if (showDebugLogs && currentStep % 100 == 0)
 				{
-					Debug.Log($"[Alignment] Angle: {angleToDropZone:F1}° | Factor: {alignmentFactor:F3} | Reward: {alignmentReward:F4}");
+					float tiltAngle = Mathf.Acos(Mathf.Clamp(uprightness, -1f, 1f)) * Mathf.Rad2Deg;
+					Debug.Log($"[Alignment] DropZone: {angleToDropZone:F1}° | Upright: {tiltAngle:F1}° (factor: {uprightness:F3}) | Rewards: align={alignmentReward:F4}, upright={uprightReward:F4}");
 				}
 
 				// Penalize holding object at dangerous heights
