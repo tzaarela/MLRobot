@@ -214,17 +214,12 @@ namespace RobotArm
 
 			targetPosition = newTarget;
 
-			// Use current rotation as target to track manual J6 changes
-			targetRotation = robotController.GetToolRotation();
-
 			if (showDebugInfo)
 			{
 				Debug.Log($"[CartesianController] New target position: {targetPosition}, rotation: {targetRotation.eulerAngles}");
 			}
 
-			// Solve IK with J6 locked to allow manual rotation control
-			// J6 will not be modified by IK, allowing simultaneous WASD movement and numpad 7/9 rotation
-			bool ikSuccess = SolveIK(targetPosition, targetRotation, lockJ6: true);
+			bool ikSuccess = SolveIK(targetPosition, targetRotation);
 
 			// Rollback if IK failed
 			if (!ikSuccess)
@@ -381,8 +376,7 @@ namespace RobotArm
 		/// This is an iterative numerical approach commonly used in industry.
 		/// Returns true if IK converged successfully, false otherwise.
 		/// </summary>
-		/// <param name="lockJ6">If true, J6 will not be modified during IK solving</param>
-		private bool SolveIK(Vector3 targetPos, Quaternion targetRot, bool lockJ6 = false)
+		private bool SolveIK(Vector3 targetPos, Quaternion targetRot)
 		{
 			// Store original smooth movement setting
 			bool originalSmoothSetting = robotController.useSmoothMovement;
@@ -465,12 +459,6 @@ namespace RobotArm
 					jointDeltas[i] = Mathf.Clamp(jointDeltas[i], -maxJointDelta, maxJointDelta);
 				}
 
-				// Lock J6 if requested (for manual control during position-only movement)
-				if (lockJ6)
-				{
-					jointDeltas[5] = 0f;
-				}
-
 				// Apply joint movements (convert to degrees)
 				for (int i = 0; i < 6; i++)
 				{
@@ -518,8 +506,7 @@ namespace RobotArm
 			}
 
 			// Sync target angles to prevent smooth movement from interpolating to old values
-			// Exclude J6 if it's locked for manual control
-			robotController.SyncTargetAnglesToCurrent(excludeJ6: lockJ6);
+			robotController.SyncTargetAnglesToCurrent();
 
 			// Restore original smooth movement setting
 			robotController.useSmoothMovement = originalSmoothSetting;

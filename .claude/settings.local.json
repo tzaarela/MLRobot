@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "WebFetch(domain:docs.coplay.dev)",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(\"C:/Users/jimmy/AppData/Local/Programs/Python/Python311/Scripts/uvx.exe\" --version)",
+      "Bash(\"C:/Users/jimmy/AppData/Local/Programs/Python/Python311/python.exe\" -m pip install uv)",
+      "mcp__coplay-mcp__list_unity_project_roots",
+      "mcp__coplay-mcp__set_unity_project_root",
+      "mcp__coplay-mcp__get_unity_editor_state",
+      "mcp__coplay-mcp__check_compile_errors",
+      "mcp__coplay-mcp__get_unity_logs",
+      "mcp__coplay-mcp__list_game_objects_in_hierarchy",
+      "mcp__coplay-mcp__execute_script",
+      "mcp__coplay-mcp__get_game_object_info",
+      "mcp__coplay-mcp__save_scene",
+      "mcp__coplay-mcp__open_scene"
     ]
   }
 }

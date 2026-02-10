@@ -379,16 +379,14 @@ namespace RobotArm
 				rotation.x = -1f;
 			}
 
-			// JOINT 6 DIRECT CONTROL: Numpad 7/9
-			// Rotates joint 6 around its own local axis (bypasses IK)
-			// J6 angle is preserved during position movement (see MoveCartesian)
+			// Roll (around X axis)
 			if (Input.GetKey(KeyCode.Keypad7))
 			{
-				robotController.RotateJointNormalized(5, jointRotationSpeedMultiplier, Time.deltaTime);
+				rotation.y = 1f;
 			}
 			else if (Input.GetKey(KeyCode.Keypad9))
 			{
-				robotController.RotateJointNormalized(5, -jointRotationSpeedMultiplier, Time.deltaTime);
+				rotation.y = -1f;
 			}
 
 			// Apply position movement

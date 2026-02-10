@@ -3252,7 +3252,7 @@ MonoBehaviour:
   m_PreserveMeshAssetOnDestroy: 0
   assetGuid: 
   m_Mesh: {fileID: 0}
-  m_VersionIndex: 63
+  m_VersionIndex: 144
   m_IsSelectable: 1
   m_SelectedFaces: 
   m_SelectedEdges: []
@@ -3294,12 +3294,12 @@ MonoBehaviour:
   inactiveColor: {r: 1, g: 1, b: 1, a: 1}
   activeColor: {r: 1, g: 0, b: 0.97647095, a: 1}
   holdingColor: {r: 0, g: 1, b: 0, a: 1}
-  showDebugGizmos: 1
-  showDebugRays: 1
-  debugMagneticPull: 1
-  logStateChanges: 1
-  logCollisionMonitor: 1
-  logCooldown: 1
+  showDebugGizmos: 0
+  showDebugRays: 0
+  debugMagneticPull: 0
+  logStateChanges: 0
+  logCollisionMonitor: 0
+  logCooldown: 0
   preventPushThrough: 1
   pushForceOnEnter: 0.1
   pushForceOnStay: 0.01
@@ -3432,8 +3432,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3099717594229349106}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -7.1054274e-15, w: 1}
-  m_LocalPosition: {x: 0.16006732, y: 0.00038734436, z: 0.023687733}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0.187, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3581,13 +3581,13 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4180422304661376039}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0.003490679, w: 0.9999939}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0.0193, y: 0.0001, z: -0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 926075009166447618}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0.4}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &4297843311801389247
 GameObject:
   m_ObjectHideFlags: 0
@@ -3775,13 +3775,14 @@ GameObject:
   - component: {fileID: 3020551384343974421}
   - component: {fileID: 9155845488978008783}
   - component: {fileID: 1460777987446092528}
+  - component: {fileID: 6664892612326932255}
   m_Layer: 0
   m_Name: Robot
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!4 &4125369518819724912
 Transform:
   m_ObjectHideFlags: 0
@@ -3790,7 +3791,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 4847783190239496833}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -3821,24 +3822,24 @@ MonoBehaviour:
     initialLocalRotation: {x: 0, y: 0, z: 0, w: 0}
   - jointTransform: {fileID: 3897805703585161641}
     rotationAxis: {x: 0, y: 0, z: 1}
-    minAngle: -80
-    maxAngle: 80
+    minAngle: -60
+    maxAngle: 60
     rotationSpeed: 90
     startAngle: 0
     currentAngle: 0
     initialLocalRotation: {x: 0, y: 0, z: 0, w: 0}
   - jointTransform: {fileID: 8680220112687307225}
     rotationAxis: {x: 0, y: 0, z: 1}
-    minAngle: -125
-    maxAngle: 45
+    minAngle: -140
+    maxAngle: 0
     rotationSpeed: 90
     startAngle: -80
     currentAngle: 0
     initialLocalRotation: {x: 0, y: 0, z: 0, w: 0}
   - jointTransform: {fileID: 3727786281423924017}
     rotationAxis: {x: 0, y: 1, z: 0}
-    minAngle: -360
-    maxAngle: 360
+    minAngle: -200
+    maxAngle: 200
     rotationSpeed: 90
     startAngle: 0
     currentAngle: 0
@@ -3885,21 +3886,31 @@ MonoBehaviour:
   dropOffZone: {fileID: 0}
   environmentRoot: {fileID: 0}
   trainingEnvironment: {fileID: 0}
-  movementMode: 1
+  movementMode: 0
   cartesianPositionActionScale: 10
   cartesianOrientationActionScale: 5
-  objectSpawnAreaMin: {x: 0.68, y: 0.1, z: 0.32}
-  objectSpawnAreaMax: {x: 1.36, y: 0.1, z: 1.1}
   successReward: 1
+  placementReward: 0.5
+  inZoneRewardPerStep: 0.1
   dropPenalty: -0.8
-  approachRewardScale: 0.05
-  pickupReward: 0.9
-  deliveryRewardScale: 0.2
+  approachRewardScale: 0.001
+  pickupReward: 0.8
+  safeLiftHeight: 0.5
+  liftIncrement: 0.001
+  liftRewardPerMM: 0.1
+  alignmentRewardScale: 0.001
+  uprightRewardScale: 0.02
+  deliveryRewardScale: 0.1
   stepPenalty: -0.0002
+  homeReturnBonus: 0.5
+  homeApproachRewardScale: 0.01
+  homeArrivalReward: 0.1
+  atHomeRewardPerStep: 0.05
+  homePositionTolerance: 5
+  alignmentToleranceForTimer: 8
   maxEpisodeSteps: 500
-  objectFallThreshold: 0.05
-  requireFullContainment: 1
-  dropZoneStayDuration: 3
+  objectFallThreshold: 0.2
+  rewardTracker: {fileID: 6664892612326932255}
   showDebugLogs: 1
 --- !u!114 &6426305982252468227
 MonoBehaviour:
@@ -3914,8 +3925,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   robotController: {fileID: 1550228477621720421}
-  linearSpeed: 0.1
-  angularSpeed: 1.5
+  linearSpeed: 1
+  angularSpeed: 3
   maxStepSize: 0.01
   dampingFactor: 0.5
   maxIterations: 30
@@ -3926,7 +3937,7 @@ MonoBehaviour:
   maxReachSafetyFactor: 0.95
   enforceWorkspaceLimits: 1
   showDebugInfo: 0
-  showDebugGizmos: 1
+  showDebugGizmos: 0
 --- !u!114 &6121877404789220280
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3943,14 +3954,14 @@ MonoBehaviour:
   cartesianController: {fileID: 6426305982252468227}
   pickAndPlaceAgent: {fileID: 8836222406235277980}
   trainingEnvironment: {fileID: 0}
-  jointRotationSpeedMultiplier: 1
+  jointRotationSpeedMultiplier: 0.5
   cartesianSpeedMultiplier: 1
   cartesianRotationSpeed: 1
   showControlHints: 1
   speedAdjustmentStep: 0.2
   minSpeedMultiplier: 0.2
-  maxSpeedMultiplier: 5
-  startInCartesianMode: 0
+  maxSpeedMultiplier: 3
+  startInCartesianMode: 1
 --- !u!114 &3020551384343974421
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -3964,7 +3975,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_BrainParameters:
-    VectorObservationSize: 30
+    VectorObservationSize: 35
     NumStackedVectorObservations: 1
     m_ActionSpec:
       m_NumContinuousActions: 6
@@ -4022,6 +4033,20 @@ Rigidbody:
   m_Interpolate: 1
   m_Constraints: 126
   m_CollisionDetection: 1
+--- !u!114 &6664892612326932255
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4847783190239496833}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e226db5dbfe464745802bbf353f50a90, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  agent: {fileID: 8836222406235277980}
+  showDebugLogs: 0
 --- !u!1 &5149902641256972501
 GameObject:
   m_ObjectHideFlags: 0
@@ -4184,7 +4209,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 6635248905568874898}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: -0.080277115, w: 0.9967726}
+  m_LocalRotation: {x: -3.5527137e-15, y: -0, z: -0.08439069, w: 0.9964328}
   m_LocalPosition: {x: -0.058952197, y: 0.5160855, z: -0.004072389}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -4192,7 +4217,7 @@ Transform:
   - {fileID: 8209305516990903216}
   - {fileID: 4311161307218771444}
   m_Father: {fileID: 8680220112687307225}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -9.209}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: -9.682}
 --- !u!1 &8234634022563382118
 GameObject:
   m_ObjectHideFlags: 0
