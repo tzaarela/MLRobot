@@ -219,9 +219,7 @@ namespace RobotArm
 				Debug.Log($"[CartesianController] New target position: {targetPosition}, rotation: {targetRotation.eulerAngles}");
 			}
 
-			// Solve IK with J6 locked to allow manual rotation control
-			// J6 will not be modified by IK, allowing simultaneous WASD movement and numpad 7/9 rotation
-			bool ikSuccess = SolveIK(targetPosition, targetRotation, lockJ6: true);
+			bool ikSuccess = SolveIK(targetPosition, targetRotation);
 
 			// Rollback if IK failed
 			if (!ikSuccess)
@@ -378,8 +376,7 @@ namespace RobotArm
 		/// This is an iterative numerical approach commonly used in industry.
 		/// Returns true if IK converged successfully, false otherwise.
 		/// </summary>
-		/// <param name="lockJ6">If true, J6 will not be modified during IK solving</param>
-		private bool SolveIK(Vector3 targetPos, Quaternion targetRot, bool lockJ6 = false)
+		private bool SolveIK(Vector3 targetPos, Quaternion targetRot)
 		{
 			// Store original smooth movement setting
 			bool originalSmoothSetting = robotController.useSmoothMovement;
@@ -440,14 +437,6 @@ namespace RobotArm
 
 				// Calculate Jacobian matrix (6x6 for position + orientation)
 				float[,] jacobian = CalculateJacobian();
-
-				// Zero J6 column before pseudo-inverse so solver knows J6 cannot contribute
-				// This ensures optimal distribution of correction to J1-J5
-				if (lockJ6)
-				{
-					for (int row = 0; row < 6; row++)
-						jacobian[row, 5] = 0f;
-				}
 
 				// Calculate pseudo-inverse with damping
 				float[,] jacobianPseudoInverse = CalculateDampedPseudoInverse(jacobian);
@@ -517,8 +506,7 @@ namespace RobotArm
 			}
 
 			// Sync target angles to prevent smooth movement from interpolating to old values
-			// Exclude J6 if it's locked for manual control
-			robotController.SyncTargetAnglesToCurrent(excludeJ6: lockJ6);
+			robotController.SyncTargetAnglesToCurrent();
 
 			// Restore original smooth movement setting
 			robotController.useSmoothMovement = originalSmoothSetting;
