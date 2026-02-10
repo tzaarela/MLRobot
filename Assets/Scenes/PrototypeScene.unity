@@ -6977,6 +6977,11 @@ PrefabInstance:
       objectReference: {fileID: 1381363180}
     - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
+      propertyPath: showDebugLogs
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
       propertyPath: environmentRoot
       value: 
       objectReference: {fileID: 1978629291}
@@ -7084,6 +7089,11 @@ PrefabInstance:
         type: 3}
       propertyPath: m_VersionIndex
       value: 144
+      objectReference: {fileID: 0}
+    - target: {fileID: 4127889176742022421, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: showDebugGizmos
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 4903389339882073974, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}

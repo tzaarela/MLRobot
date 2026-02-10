@@ -105,8 +105,11 @@ namespace RobotArm
 		public float liftIncrement = 0.001f; // 1mm increments
 		public float liftRewardPerMM = 0.003f; // 0.3f total over 100mm
 
-		[Tooltip("Reward scale for maintaining object alignment with drop zone rotation")]
+		[Tooltip("Reward for holding magnet downwards towards target object")]
 		public float alignmentRewardScale = 0.01f;
+
+		[Tooltip("Reward scale for maintaining object alignment with drop zone rotation")]
+		public float goalAlignmentRewardScale = 0.01f;
 
 		[Tooltip("Reward scale for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond)")]
 		public float uprightRewardScale = 0.02f;
@@ -587,8 +590,8 @@ namespace RobotArm
 				// Reward for maintaining alignment with drop zone rotation
 				float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
 				float alignmentFactor = Mathf.Clamp01(1f - (angleToDropZone / 180f));
-				float alignmentReward = alignmentRewardScale * alignmentFactor;
-				AddCategorizedReward(RewardCategory.Alignment, alignmentReward);
+				float alignmentReward = goalAlignmentRewardScale * alignmentFactor;
+				AddCategorizedReward(RewardCategory.GoalAlignment, alignmentReward);
 
 				// Reward for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond 90°)
 				float uprightness = Vector3.Dot(targetObject.up, Vector3.up);

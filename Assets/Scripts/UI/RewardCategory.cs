@@ -8,6 +8,7 @@ namespace MLRobot.UI
 		Efficiency,   // Step penalty
 		Approach,     // Tool-to-object distance, ray alignment
 		Alignment,    // Magnet alignment, upright, rotation alignment
+		GoalAlignment,// Alignment towards goal
 		Pickup,       // One-time pickup reward
 		Delivery,     // Object-to-goal distance, lift progress
 		Placement,    // Dropped in zone, in-zone per-step

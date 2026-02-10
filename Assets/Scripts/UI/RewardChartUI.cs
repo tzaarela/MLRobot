@@ -36,6 +36,7 @@ namespace MLRobot.UI
 			{ RewardCategory.Efficiency, new Color(0.502f, 0.502f, 0.502f) },  // Gray
 			{ RewardCategory.Approach, new Color(0.298f, 0.686f, 0.314f) },    // Green
 			{ RewardCategory.Alignment, new Color(0.129f, 0.588f, 0.953f) },   // Blue
+			{ RewardCategory.GoalAlignment, new Color(1f, 1f, 1f )}, 		   //black
 			{ RewardCategory.Pickup, new Color(1f, 0.596f, 0f) },              // Orange
 			{ RewardCategory.Delivery, new Color(0.612f, 0.153f, 0.690f) },    // Purple
 			{ RewardCategory.Placement, new Color(0f, 0.737f, 0.831f) },       // Cyan
