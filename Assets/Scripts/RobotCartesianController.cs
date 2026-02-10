@@ -214,9 +214,6 @@ namespace RobotArm
 
 			targetPosition = newTarget;
 
-			// Use current rotation as target to track manual J6 changes
-			targetRotation = robotController.GetToolRotation();
-
 			if (showDebugInfo)
 			{
 				Debug.Log($"[CartesianController] New target position: {targetPosition}, rotation: {targetRotation.eulerAngles}");
@@ -444,6 +441,14 @@ namespace RobotArm
 				// Calculate Jacobian matrix (6x6 for position + orientation)
 				float[,] jacobian = CalculateJacobian();
 
+				// Zero J6 column before pseudo-inverse so solver knows J6 cannot contribute
+				// This ensures optimal distribution of correction to J1-J5
+				if (lockJ6)
+				{
+					for (int row = 0; row < 6; row++)
+						jacobian[row, 5] = 0f;
+				}
+
 				// Calculate pseudo-inverse with damping
 				float[,] jacobianPseudoInverse = CalculateDampedPseudoInverse(jacobian);
 
@@ -463,12 +468,6 @@ namespace RobotArm
 				for (int i = 0; i < 6; i++)
 				{
 					jointDeltas[i] = Mathf.Clamp(jointDeltas[i], -maxJointDelta, maxJointDelta);
-				}
-
-				// Lock J6 if requested (for manual control during position-only movement)
-				if (lockJ6)
-				{
-					jointDeltas[5] = 0f;
 				}
 
 				// Apply joint movements (convert to degrees)
