@@ -2,6 +2,7 @@ using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
+using MLRobot.UI;
 
 namespace RobotArm
 {
@@ -144,6 +145,10 @@ namespace RobotArm
 		[Tooltip("Height below which object is considered fallen")]
 		public float objectFallThreshold = 0.05f;
 
+		[Header("Reward Tracking")]
+		[Tooltip("Tracks rewards by category for visualization (optional)")]
+		[SerializeField] private RewardTracker rewardTracker;
+
 		[Header("Debug")]
 		public bool showDebugLogs = true;
 
@@ -223,6 +228,12 @@ namespace RobotArm
 			currentStep = 0;
 			hasPickedUp = false;
 			wasHolding = false;
+
+			// Reset reward tracking for new episode
+			if (rewardTracker != null)
+			{
+				rewardTracker.ResetTracking();
+			}
 
 			// Reset drop zone timer
 			isTimerActive = false;
@@ -481,7 +492,7 @@ namespace RobotArm
 		private void CalculateRewards()
 		{
 			// Step penalty for efficiency
-			AddReward(stepPenalty);
+			AddCategorizedReward(RewardCategory.Efficiency, stepPenalty);
 
 			float currentDistToObject = Vector3.Distance(robotController.GetToolPosition(), targetObject.position);
 			float currentDistToGoal = Vector3.Distance(targetObject.position, dropOffZone.position);
@@ -496,16 +507,16 @@ namespace RobotArm
 
 				if (approachDelta > 0)
 				{
-					AddReward(0.05f);
+					AddCategorizedReward(RewardCategory.Approach, approachRewardScale);
 				}
 				else
 				{
-					AddReward(-0.55f);
+					AddCategorizedReward(RewardCategory.Approach, -approachRewardScale);
 				}
 
 				if (previousDistanceToGoal > currentDistToGoal)
 				{
-					AddReward(-0.1f);
+					AddCategorizedReward(RewardCategory.Approach, -0.1f);
 				}
 
 				// Bonus for good alignment (magnet facing down toward object)
@@ -513,9 +524,7 @@ namespace RobotArm
 					(targetObject.position - robotController.GetToolPosition()).normalized);
 
 				if (alignment > 0.8f)
-					AddReward(0.2f);
-				else if (alignment > 0.6f)
-					AddReward(0.1f);
+					AddCategorizedReward(RewardCategory.Alignment, alignmentRewardScale);
 
 				// Debug logging every 100 steps
 				if (showDebugLogs && currentStep % 100 == 0)
@@ -525,14 +534,14 @@ namespace RobotArm
 					//Debug.Log($"[Step {currentStep}] ToolPos: {toolPos}, ObjPos: {objPos}, Dist: {currentDistToObject:F3}, PrevDist: {previousDistanceToObject:F3}, Delta: {approachDelta:F4}");
 				}
 
-				float alignmentReward = robotController.magnet.RaysHitting * 0.05f;
-				AddReward(alignmentReward);
+				// float rayAlignmentReward = robotController.magnet.RaysHitting * 0.05f;
+				// AddCategorizedReward(RewardCategory.Alignment, rayAlignmentReward);
 			}
 
 			// Pickup reward (one-time)
 			if (isHolding && !wasHolding)
 			{
-				AddReward(pickupReward);
+				AddCategorizedReward(RewardCategory.Pickup, pickupReward);
 				hasPickedUp = true;
 				objectPickupHeight = targetObject.position.y; // Record pickup height for lift bonus
 			}
@@ -543,13 +552,14 @@ namespace RobotArm
 				// Reward for bringing object closer to goal
 				float deliveryDelta = previousDistanceToGoal - currentDistToGoal;
 
+
 				if (deliveryDelta > 0)
 				{
-					AddReward(0.5f);
+					AddCategorizedReward(RewardCategory.Delivery, deliveryRewardScale);
 				}
-				else
+				else if (deliveryDelta < 0)
 				{
-					AddReward(-0.55f);
+					AddCategorizedReward(RewardCategory.Delivery, -deliveryRewardScale);
 				}
 
 				// Incremental rewards for lifting object toward safe height
@@ -564,7 +574,7 @@ namespace RobotArm
 					if (incrementsCrossed > 0)
 					{
 						float reward = incrementsCrossed * liftRewardPerMM;
-						AddReward(reward);
+						AddCategorizedReward(RewardCategory.Delivery, reward);
 						maxLiftHeightReached += incrementsCrossed * liftIncrement; // Update by exact increments
 
 						if (showDebugLogs)
@@ -578,12 +588,12 @@ namespace RobotArm
 				float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
 				float alignmentFactor = Mathf.Clamp01(1f - (angleToDropZone / 180f));
 				float alignmentReward = alignmentRewardScale * alignmentFactor;
-				AddReward(alignmentReward);
+				AddCategorizedReward(RewardCategory.Alignment, alignmentReward);
 
 				// Reward for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond 90°)
 				float uprightness = Vector3.Dot(targetObject.up, Vector3.up);
 				float uprightReward = uprightness * uprightRewardScale;
-				AddReward(uprightReward);
+				AddCategorizedReward(RewardCategory.Alignment, uprightReward);
 
 				if (showDebugLogs && currentStep % 100 == 0)
 				{
@@ -596,7 +606,7 @@ namespace RobotArm
 				if (objectHeight < objectFallThreshold) // 0.05m
 				{
 					// Strong penalty for critical danger zone
-					AddReward(-0.5f);
+					AddCategorizedReward(RewardCategory.DropFall, -0.5f);
 
 					if (showDebugLogs)
 					{
@@ -606,7 +616,7 @@ namespace RobotArm
 				else if (objectHeight < objectFallThreshold + 0.05f) // 0.10m warning zone
 				{
 					// Mild penalty for approaching danger
-					AddReward(-0.1f);
+					AddCategorizedReward(RewardCategory.DropFall, -0.1f);
 				}
 			}
 
@@ -622,7 +632,7 @@ namespace RobotArm
 					if (angleToDropZone <= alignmentToleranceForTimer)
 					{
 						// Good alignment - reward and start timer
-						AddReward(placementReward);
+						AddCategorizedReward(RewardCategory.Placement, placementReward);
 						isTimerActive = true;
 						dropZoneTimer = 0f;
 						hasDroppedInZone = true;
@@ -636,7 +646,7 @@ namespace RobotArm
 					{
 						// Poor alignment - penalty, no timer
 						float alignmentPenalty = -0.3f * (angleToDropZone / 180f);
-						AddReward(alignmentPenalty);
+						AddCategorizedReward(RewardCategory.Alignment, alignmentPenalty);
 
 						if (showDebugLogs)
 						{
@@ -650,7 +660,7 @@ namespace RobotArm
 					{
 						Debug.Log($"[Reward] Value: {dropPenalty} | Dropped object outside goal zone.");
 					}
-					AddReward(dropPenalty);
+					AddCategorizedReward(RewardCategory.DropFall, dropPenalty);
 					EndEpisode();
 				}
 			}
@@ -664,7 +674,7 @@ namespace RobotArm
 					dropZoneTimer += Time.fixedDeltaTime;
 
 					// Continuous reward for keeping object in zone
-					AddReward(inZoneRewardPerStep);
+					AddCategorizedReward(RewardCategory.Placement, inZoneRewardPerStep);
 
 					// Update home status
 					bool wasAtHome = isAtHome;
@@ -673,7 +683,7 @@ namespace RobotArm
 					// One-time reward for arriving at home
 					if (isAtHome && !wasAtHome && !hasReturnedHome)
 					{
-						AddReward(homeArrivalReward);
+						AddCategorizedReward(RewardCategory.Home, homeArrivalReward);
 						hasReturnedHome = true;
 
 						if (showDebugLogs)
@@ -685,18 +695,18 @@ namespace RobotArm
 					// Continuous reward for being at home
 					if (isAtHome)
 					{
-						AddReward(atHomeRewardPerStep);
+						AddCategorizedReward(RewardCategory.Home, atHomeRewardPerStep);
 					}
 					else
 					{
 						// Reward for moving toward home
 						float currentDistToHome = CalculateJointDistanceToHome();
-						float approachDelta = previousJointDistanceToHome - currentDistToHome;
+						float homeApproachDelta = previousJointDistanceToHome - currentDistToHome;
 
-						if (approachDelta > 0)
+						if (homeApproachDelta > 0)
 						{
-							float approachReward = approachDelta * homeApproachRewardScale;
-							AddReward(approachReward);
+							float homeApproachReward = homeApproachDelta * homeApproachRewardScale;
+							AddCategorizedReward(RewardCategory.Home, homeApproachReward);
 						}
 
 						previousJointDistanceToHome = currentDistToHome;
@@ -714,12 +724,12 @@ namespace RobotArm
 					{
 						// Base success reward (50%)
 						float baseReward = successReward * 0.5f;
-						AddReward(baseReward);
+						AddCategorizedReward(RewardCategory.Success, baseReward);
 
 						// Bonus for being at home (50%)
 						if (isAtHome)
 						{
-							AddReward(homeReturnBonus);
+							AddCategorizedReward(RewardCategory.Home, homeReturnBonus);
 
 							if (showDebugLogs)
 							{
@@ -759,7 +769,7 @@ namespace RobotArm
 					Debug.LogWarning($"[Failure] Agent pushed held object below floor: y={targetObject.position.y:F3}m");
 				}
 
-				AddReward(dropPenalty * 2f); // -1.0f (double penalty for active exploit)
+				AddCategorizedReward(RewardCategory.DropFall, dropPenalty * 2f); // -1.0f (double penalty for active exploit)
 				EndEpisode();
 				return;
 			}
@@ -779,7 +789,7 @@ namespace RobotArm
 				{
 					Debug.Log($"[Failure] Object fell below floor: y={targetObject.position.y:F3}m < {objectFallThreshold}m");
 				}
-				AddReward(dropPenalty);
+				AddCategorizedReward(RewardCategory.DropFall, dropPenalty);
 				EndEpisode();
 				return;
 			}
@@ -935,6 +945,22 @@ namespace RobotArm
 		private bool CheckIfAtHome()
 		{
 			return CalculateJointDistanceToHome() <= homePositionTolerance;
+		}
+
+		/// <summary>
+		/// Add reward with optional category tracking.
+		/// Routes through RewardTracker if available, otherwise calls base AddReward.
+		/// </summary>
+		private void AddCategorizedReward(RewardCategory category, float amount)
+		{
+			if (rewardTracker != null)
+			{
+				rewardTracker.AddCategorizedReward(category, amount);
+			}
+			else
+			{
+				AddReward(amount);
+			}
 		}
 
 #if UNITY_EDITOR
