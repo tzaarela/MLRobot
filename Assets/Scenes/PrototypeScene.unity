@@ -333,6 +333,12 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 151526985}
   m_CullTransparentMesh: 1
+--- !u!4 &163941467 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 6509121668759135853, guid: 4c50d441cae23664d9389fbb53d172ed,
+    type: 3}
+  m_PrefabInstance: {fileID: 5037434855306363774}
+  m_PrefabAsset: {fileID: 0}
 --- !u!4 &275692514 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 3503758218637569306, guid: 2387778469eac094a8fba3cf9449c2b2,
@@ -351,6 +357,7 @@ GameObject:
   - component: {fileID: 330585545}
   - component: {fileID: 330585544}
   - component: {fileID: 330585547}
+  - component: {fileID: 330585548}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -476,6 +483,25 @@ MonoBehaviour:
     m_MipBias: 0
     m_VarianceClampScale: 0.9
     m_ContrastAdaptiveSharpening: 0
+--- !u!114 &330585548
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 330585543}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 502d86e848c60bd4096b1767d1ef7dfd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  target: {fileID: 163941467}
+  distance: 1.7
+  heightOffset: 0.5
+  rotationAngles: {x: 9, y: 90, z: 0}
+  smoothSpeed: 1
+  lookAtTarget: 0
+  showDebugGizmos: 1
 --- !u!43 &387118264
 Mesh:
   m_ObjectHideFlags: 0
