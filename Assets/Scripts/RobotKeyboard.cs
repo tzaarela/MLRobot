@@ -379,6 +379,16 @@ namespace RobotArm
 				rotation.x = -1f;
 			}
 
+			// Roll (around X axis)
+			if (Input.GetKey(KeyCode.Keypad7))
+			{
+				rotation.y = 1f;
+			}
+			else if (Input.GetKey(KeyCode.Keypad9))
+			{
+				rotation.y = -1f;
+			}
+
 			// Apply position movement
 			if (movement.magnitude > 0.01f)
 			{
