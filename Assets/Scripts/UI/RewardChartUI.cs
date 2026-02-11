@@ -44,10 +44,16 @@ namespace MLRobot.UI
 			{ RewardCategory.Success, new Color(0.545f, 0.765f, 0.290f) }      // Bright Green
 		};
 
+		// Cached enum values to avoid Enum.GetValues() allocations
+		private static readonly RewardCategory[] AllCategories = (RewardCategory[])Enum.GetValues(typeof(RewardCategory));
+
 		// Runtime UI elements
 		private Dictionary<RewardCategory, Image> positiveSegments = new Dictionary<RewardCategory, Image>();
 		private Dictionary<RewardCategory, Image> negativeSegments = new Dictionary<RewardCategory, Image>();
 		private Dictionary<RewardCategory, Text> legendValues = new Dictionary<RewardCategory, Text>();
+
+		// Dirty flag for batched updates
+		private bool displayDirty = false;
 
 		private void Start()
 		{
@@ -74,7 +80,7 @@ namespace MLRobot.UI
 
 		private void CreateUI()
 		{
-			foreach (RewardCategory category in Enum.GetValues(typeof(RewardCategory)))
+			foreach (RewardCategory category in AllCategories)
 			{
 				Color color = CategoryColors[category];
 
@@ -130,45 +136,59 @@ namespace MLRobot.UI
 			UpdateDisplay();
 		}
 
+		private void LateUpdate()
+		{
+			if (displayDirty)
+			{
+				displayDirty = false;
+				UpdateDisplay();
+			}
+		}
+
 		private void OnRewardAdded(RewardCategory category, float amount)
 		{
-			UpdateDisplay();
+			displayDirty = true;
 		}
 
 		private void OnTrackingReset()
 		{
-			UpdateDisplay();
+			displayDirty = true;
 		}
 
 		private void UpdateDisplay()
 		{
 			if (rewardTracker == null) return;
 
-			var totals = rewardTracker.GetCategoryTotals();
+			var totals = rewardTracker.CategoryTotals;
 
 			float positiveTotal = 0f;
 			float negativeTotal = 0f;
 
-			foreach (var kvp in totals)
+			for (int i = 0; i < AllCategories.Length; i++)
 			{
-				if (kvp.Value > 0)
-					positiveTotal += kvp.Value;
+				float val = totals[AllCategories[i]];
+				if (val > 0f)
+					positiveTotal += val;
 				else
-					negativeTotal += Mathf.Abs(kvp.Value);
+					negativeTotal -= val; // Mathf.Abs via negation
 			}
 
 			// Update positive bar segments
 			float posOffset = 0f;
-			foreach (RewardCategory category in Enum.GetValues(typeof(RewardCategory)))
+			for (int i = 0; i < AllCategories.Length; i++)
 			{
+				RewardCategory category = AllCategories[i];
 				float value = totals[category];
 
 				if (positiveSegments.TryGetValue(category, out Image posImage))
 				{
-					if (value > 0)
+					bool shouldBeActive = value > 0f;
+					if (posImage.gameObject.activeSelf != shouldBeActive)
+						posImage.gameObject.SetActive(shouldBeActive);
+
+					if (shouldBeActive)
 					{
-						posImage.gameObject.SetActive(true);
-						float width = positiveTotal > 0
+						float width = positiveTotal > 0f
 							? maxBarWidth * (value / positiveTotal)
 							: 0f;
 						width = Mathf.Max(width, 2f);
@@ -182,26 +202,26 @@ namespace MLRobot.UI
 
 						posOffset += width;
 					}
-					else
-					{
-						posImage.gameObject.SetActive(false);
-					}
 				}
 			}
 
 			// Update negative bar segments
 			float negOffset = 0f;
-			foreach (RewardCategory category in Enum.GetValues(typeof(RewardCategory)))
+			for (int i = 0; i < AllCategories.Length; i++)
 			{
+				RewardCategory category = AllCategories[i];
 				float value = totals[category];
 
 				if (negativeSegments.TryGetValue(category, out Image negImage))
 				{
-					if (value < 0)
+					bool shouldBeActive = value < 0f;
+					if (negImage.gameObject.activeSelf != shouldBeActive)
+						negImage.gameObject.SetActive(shouldBeActive);
+
+					if (shouldBeActive)
 					{
-						negImage.gameObject.SetActive(true);
-						float absValue = Mathf.Abs(value);
-						float width = negativeTotal > 0
+						float absValue = -value; // Already know value < 0
+						float width = negativeTotal > 0f
 							? maxBarWidth * (absValue / negativeTotal)
 							: 0f;
 						width = Mathf.Max(width, 2f);
@@ -215,20 +235,17 @@ namespace MLRobot.UI
 
 						negOffset += width;
 					}
-					else
-					{
-						negImage.gameObject.SetActive(false);
-					}
 				}
 			}
 
 			// Update legend values
-			foreach (RewardCategory category in Enum.GetValues(typeof(RewardCategory)))
+			for (int i = 0; i < AllCategories.Length; i++)
 			{
+				RewardCategory category = AllCategories[i];
 				if (legendValues.TryGetValue(category, out Text valueText))
 				{
 					float value = totals[category];
-					valueText.text = value >= 0 ? $"+{value:F2}" : $"{value:F2}";
+					valueText.text = value >= 0f ? $"+{value:F2}" : $"{value:F2}";
 				}
 			}
 

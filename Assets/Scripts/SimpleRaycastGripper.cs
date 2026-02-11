@@ -103,6 +103,9 @@ namespace RobotArm
 		private bool isColliding = false;
 		private Vector3[] rayHitPoints = new Vector3[4];
 
+		// Pre-allocated scan arrays (performance)
+		private Vector3[] scanCorners = new Vector3[4];
+
 		//Magnetic Pull
 		private Coroutine magneticPullRoutine = null;
 		private bool pullComplete = false;
@@ -359,21 +362,17 @@ namespace RobotArm
 			Vector3 up = transform.up;
 			Vector3 forward = transform.forward;
 
-			Vector3[] corners = new Vector3[4]
-			{
-				magnetCenter + up * magnetRadius,      // 0° (right)
-				magnetCenter + forward * magnetRadius,    // 90° (forward)
-				magnetCenter - up * magnetRadius,      // 180° (left)
-				magnetCenter - forward * magnetRadius     // 270° (back)
-			};
+			scanCorners[0] = magnetCenter + up * magnetRadius;       // 0° (right)
+			scanCorners[1] = magnetCenter + forward * magnetRadius;  // 90° (forward)
+			scanCorners[2] = magnetCenter - up * magnetRadius;       // 180° (left)
+			scanCorners[3] = magnetCenter - forward * magnetRadius;  // 270° (back)
 
 			// Cast rays from each corner
 			GameObject firstHitObject = null;
-			List<string> hitObjects = new List<string>();
 
 			for (int i = 0; i < 4; i++)
 			{
-				Vector3 rayStart = corners[i];
+				Vector3 rayStart = scanCorners[i];
 				Vector3 rayDir = magnetNormal;
 				float rayDist = raycastDistance;
 
@@ -403,7 +402,6 @@ namespace RobotArm
 					rayHits[i] = true;
 					raysHitting++;
 					rayHitPoints[i] = hit.point;
-					hitObjects.Add($"{hit.collider.name}(dist:{hit.distance:F4})");
 
 					// Track which object we hit
 					if (firstHitObject == null)
@@ -427,7 +425,7 @@ namespace RobotArm
 				// Log when we first detect a new object
 				if (detectedObject != previousDetectedObject && logStateChanges)
 				{
-					Debug.Log($"[Magnet-{gameObject.name}] ✓ NEW DETECTION: {detectedObject.name} | All 4 rays hit | Hits: {string.Join(", ", hitObjects)}");
+					Debug.Log($"[Magnet-{gameObject.name}] ✓ NEW DETECTION: {detectedObject.name} | All 4 rays hit");
 				}
 			}
 			else

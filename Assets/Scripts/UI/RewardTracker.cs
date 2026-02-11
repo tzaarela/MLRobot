@@ -11,15 +11,36 @@ namespace MLRobot.UI
 	/// </summary>
 	public class RewardTracker : MonoBehaviour
 	{
+		/// <summary>
+		/// When false, AddCategorizedReward bypasses all tracking (dictionary, events)
+		/// and calls Agent.AddReward directly. Toggle at runtime with F9.
+		/// </summary>
+		public static bool TrackingEnabled = true;
+
 		[Header("References")]
 		[Tooltip("The ML-Agent to track rewards for")]
 		[SerializeField] private Agent agent;
 
+		[Tooltip("Canvas to disable when tracking is off (optional)")]
+		[SerializeField] private Canvas rewardCanvas;
+
+		[Header("Settings")]
+		[Tooltip("Whether reward tracking starts enabled on play")]
+		[SerializeField] private bool startTrackingEnabled = true;
+
 		[Header("Debug")]
 		[SerializeField] private bool showDebugLogs = false;
 
+		// Cached enum values to avoid Enum.GetValues() allocations
+		private static readonly RewardCategory[] AllCategories = (RewardCategory[])Enum.GetValues(typeof(RewardCategory));
+
 		// Category totals for current episode
 		private Dictionary<RewardCategory, float> categoryTotals = new Dictionary<RewardCategory, float>();
+
+		/// <summary>
+		/// Read-only access to category totals without dictionary copy.
+		/// </summary>
+		public IReadOnlyDictionary<RewardCategory, float> CategoryTotals => categoryTotals;
 
 		/// <summary>
 		/// Event fired when any reward is added. Parameters: (category, amount)
@@ -39,14 +60,32 @@ namespace MLRobot.UI
 		private void Awake()
 		{
 			InitializeCategoryTotals();
+			TrackingEnabled = startTrackingEnabled;
+			SetCanvasEnabled(TrackingEnabled);
+		}
+
+		private void Update()
+		{
+			if (Input.GetKeyDown(KeyCode.F9))
+			{
+				TrackingEnabled = !TrackingEnabled;
+				SetCanvasEnabled(TrackingEnabled);
+				Debug.Log($"[RewardTracker] Reward tracking {(TrackingEnabled ? "ENABLED" : "DISABLED")}");
+			}
+		}
+
+		private void SetCanvasEnabled(bool enabled)
+		{
+			if (rewardCanvas != null)
+				rewardCanvas.gameObject.SetActive(enabled);
 		}
 
 		private void InitializeCategoryTotals()
 		{
 			categoryTotals.Clear();
-			foreach (RewardCategory category in Enum.GetValues(typeof(RewardCategory)))
+			for (int i = 0; i < AllCategories.Length; i++)
 			{
-				categoryTotals[category] = 0f;
+				categoryTotals[AllCategories[i]] = 0f;
 			}
 			TotalReward = 0f;
 		}
@@ -59,6 +98,12 @@ namespace MLRobot.UI
 			if (agent == null)
 			{
 				Debug.LogWarning("[RewardTracker] No agent assigned, cannot add reward");
+				return;
+			}
+
+			if (!TrackingEnabled)
+			{
+				agent.AddReward(amount);
 				return;
 			}
 

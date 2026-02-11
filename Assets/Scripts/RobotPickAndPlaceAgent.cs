@@ -162,7 +162,7 @@ namespace RobotArm
 		[SerializeField] private RewardTracker rewardTracker;
 
 		[Header("Debug")]
-		public bool showDebugLogs = true;
+		public bool showDebugLogs = false;
 
 		// State tracking
 		private Rigidbody targetRigidbody;
@@ -193,6 +193,13 @@ namespace RobotArm
 		// Movement mode tracking (for Auto mode)
 		private MovementMode currentActiveMode = MovementMode.Joint;
 
+		// Cached components and pre-allocated buffers (performance)
+		private bool isHeuristicMode = false;
+		private float[] jointDeltasBuffer = new float[6];
+		private Vector3[] cornersBuffer = new Vector3[8];
+		private Renderer targetRenderer;
+		private Collider targetCollider;
+
 		private void Awake()
 		{
 			dropZoneSize = dropOffZone.GetComponent<DropZoneVisualizer>().dropZoneSize;
@@ -200,9 +207,16 @@ namespace RobotArm
 
 		public override void Initialize()
 		{
+			// Cache BehaviorParameters to avoid per-frame GetComponent
+			var behaviorParams = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>();
+			isHeuristicMode = behaviorParams != null &&
+				behaviorParams.BehaviorType == Unity.MLAgents.Policies.BehaviorType.HeuristicOnly;
+
 			if (targetObject != null)
 			{
 				targetRigidbody = targetObject.GetComponent<Rigidbody>();
+				targetRenderer = targetObject.GetComponent<Renderer>();
+				targetCollider = targetObject.GetComponent<Collider>();
 				initialObjectPosition = GetLocalPosition(targetObject.position);
 				initialObjectRotation = targetObject.rotation;
 			}
@@ -374,10 +388,6 @@ namespace RobotArm
 		{
 			currentStep++;
 
-			// Skip movement if in HeuristicOnly mode (keyboard controller handles it)
-			bool isHeuristicMode = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>()?.BehaviorType
-				== Unity.MLAgents.Policies.BehaviorType.HeuristicOnly;
-
 			if (!isHeuristicMode)
 			{
 				// === Mode Selection (Auto mode only) ===
@@ -405,12 +415,11 @@ namespace RobotArm
 				if (currentActiveMode == MovementMode.Joint)
 			{
 				// Joint mode: 6 continuous actions control joint angle deltas
-				float[] jointDeltas = new float[6];
 				for (int i = 0; i < 6; i++)
 				{
-					jointDeltas[i] = actions.ContinuousActions[i];
+					jointDeltasBuffer[i] = actions.ContinuousActions[i];
 				}
-				robotController.ApplyJointDeltas(jointDeltas, Time.fixedDeltaTime);
+				robotController.ApplyJointDeltas(jointDeltasBuffer, Time.fixedDeltaTime);
 			}
 			else if (currentActiveMode == MovementMode.CartesianWorld || currentActiveMode == MovementMode.CartesianTool)
 			{
@@ -452,12 +461,11 @@ namespace RobotArm
 				{
 					Debug.LogWarning("[Agent] Cartesian mode selected but no CartesianController assigned! Falling back to joint control.");
 					// Fallback to joint control if Cartesian controller missing
-					float[] jointDeltas = new float[6];
 					for (int i = 0; i < 6; i++)
 					{
-						jointDeltas[i] = actions.ContinuousActions[i];
+						jointDeltasBuffer[i] = actions.ContinuousActions[i];
 					}
-					robotController.ApplyJointDeltas(jointDeltas, Time.fixedDeltaTime);
+					robotController.ApplyJointDeltas(jointDeltasBuffer, Time.fixedDeltaTime);
 				}
 			}
 			} // End of !isHeuristicMode check
@@ -465,7 +473,7 @@ namespace RobotArm
 			// === Magnet Control ===
 			// Discrete action branch 0: magnet (0 = off, 1 = on)
 			// Only control magnet if not in Heuristic mode (let keyboard handle it in Heuristic)
-			if (GetComponent<Unity.MLAgents.Policies.BehaviorParameters>().BehaviorType != Unity.MLAgents.Policies.BehaviorType.HeuristicOnly)
+			if (!isHeuristicMode)
 			{
 				bool magnetOn = actions.DiscreteActions[0] == 1;
 				robotController.SetMagnetActive(magnetOn);
@@ -779,9 +787,6 @@ namespace RobotArm
 			}
 
 			// Timeout (only in training mode, not in manual/heuristic mode)
-			bool isHeuristicMode = GetComponent<Unity.MLAgents.Policies.BehaviorParameters>().BehaviorType ==
-								   Unity.MLAgents.Policies.BehaviorType.HeuristicOnly;
-
 			if (!isHeuristicMode && currentStep >= maxEpisodeSteps)
 			{
 				EndEpisode();
@@ -814,21 +819,18 @@ namespace RobotArm
 				Vector3 min = objectBounds.min;
 				Vector3 max = objectBounds.max;
 
-				Vector3[] corners = new Vector3[8]
-				{
-					new Vector3(min.x, min.y, min.z),
-					new Vector3(min.x, min.y, max.z),
-					new Vector3(min.x, max.y, min.z),
-					new Vector3(min.x, max.y, max.z),
-					new Vector3(max.x, min.y, min.z),
-					new Vector3(max.x, min.y, max.z),
-					new Vector3(max.x, max.y, min.z),
-					new Vector3(max.x, max.y, max.z)
-				};
+				cornersBuffer[0] = new Vector3(min.x, min.y, min.z);
+				cornersBuffer[1] = new Vector3(min.x, min.y, max.z);
+				cornersBuffer[2] = new Vector3(min.x, max.y, min.z);
+				cornersBuffer[3] = new Vector3(min.x, max.y, max.z);
+				cornersBuffer[4] = new Vector3(max.x, min.y, min.z);
+				cornersBuffer[5] = new Vector3(max.x, min.y, max.z);
+				cornersBuffer[6] = new Vector3(max.x, max.y, min.z);
+				cornersBuffer[7] = new Vector3(max.x, max.y, max.z);
 
-				foreach (Vector3 corner in corners)
+				for (int i = 0; i < 8; i++)
 				{
-					if (!dropZoneBounds.Contains(corner))
+					if (!dropZoneBounds.Contains(cornersBuffer[i]))
 					{
 						return false; // At least one corner is outside
 					}
@@ -849,21 +851,26 @@ namespace RobotArm
 		/// </summary>
 		private Bounds GetObjectBounds(Transform obj)
 		{
-			// Try to get renderer (most accurate for rotated objects)
-			Renderer renderer = obj.GetComponent<Renderer>();
-			if (renderer != null)
+			// Use cached references for the target object (hot path)
+			if (obj == targetObject)
 			{
-				return renderer.bounds; // World-space AABB
+				if (targetRenderer != null)
+					return targetRenderer.bounds;
+				if (targetCollider != null)
+					return targetCollider.bounds;
+			}
+			else
+			{
+				// Fallback for non-target objects
+				Renderer renderer = obj.GetComponent<Renderer>();
+				if (renderer != null)
+					return renderer.bounds;
+
+				Collider collider = obj.GetComponent<Collider>();
+				if (collider != null)
+					return collider.bounds;
 			}
 
-			// Fallback: try collider
-			Collider collider = obj.GetComponent<Collider>();
-			if (collider != null)
-			{
-				return collider.bounds;
-			}
-
-			// Last resort: return zero-size bounds at object position
 			Debug.LogWarning($"No Renderer or Collider found on {obj.name} for bounds calculation");
 			return new Bounds(obj.position, Vector3.zero);
 		}

@@ -6710,7 +6710,7 @@ PrefabInstance:
     - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
       propertyPath: showDebugLogs
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
@@ -6792,6 +6792,16 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2481077167196005428, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: rewardCanvas
+      value: 
+      objectReference: {fileID: 2144200570}
+    - target: {fileID: 2481077167196005428, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: startTrackingEnabled
+      value: 0
+      objectReference: {fileID: 0}
     - target: {fileID: 2586509074326596564, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
       propertyPath: m_Size.x
@@ -6825,7 +6835,7 @@ PrefabInstance:
     - target: {fileID: 3573641826953907780, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
       propertyPath: m_VersionIndex
-      value: 147
+      value: 150
       objectReference: {fileID: 0}
     - target: {fileID: 4127889176742022421, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
