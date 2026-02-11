@@ -82,6 +82,15 @@ namespace RobotArm
 		[Range(1f, 100f)]
 		public float cartesianOrientationActionScale = 20f;
 
+		[Tooltip("Enable roll (X-axis rotation) in Cartesian mode")]
+		public bool useRoll = true;
+
+		[Tooltip("Enable pitch (Y-axis rotation) in Cartesian mode")]
+		public bool usePitch = true;
+
+		[Tooltip("Enable yaw (Z-axis rotation) in Cartesian mode")]
+		public bool useYaw = true;
+
 		[Header("Reward Settings")]
 		[Tooltip("Reward for successfully completing task (object stays in zone for full duration)")]
 		public float successReward = 1.0f;
@@ -412,9 +421,9 @@ namespace RobotArm
 					float deltaX = actions.ContinuousActions[0] * cartesianPositionActionScale;
 					float deltaY = actions.ContinuousActions[1] * cartesianPositionActionScale;
 					float deltaZ = actions.ContinuousActions[2] * cartesianPositionActionScale;
-					float deltaRoll = actions.ContinuousActions[3] * cartesianOrientationActionScale;
-					float deltaPitch = actions.ContinuousActions[4] * cartesianOrientationActionScale;
-					float deltaYaw = actions.ContinuousActions[5] * cartesianOrientationActionScale;
+					float deltaRoll = useRoll ? actions.ContinuousActions[3] * cartesianOrientationActionScale : 0f;
+					float deltaPitch = usePitch ? actions.ContinuousActions[4] * cartesianOrientationActionScale : 0f;
+					float deltaYaw = useYaw ? actions.ContinuousActions[5] * cartesianOrientationActionScale : 0f;
 
 					// Calculate position delta in appropriate frame
 					Vector3 positionDelta = new Vector3(deltaX, deltaY, deltaZ);
@@ -492,11 +501,6 @@ namespace RobotArm
 				else
 				{
 					AddCategorizedReward(RewardCategory.Approach, -approachRewardScale);
-				}
-
-				if (previousDistanceToGoal > currentDistToGoal)
-				{
-					AddCategorizedReward(RewardCategory.Approach, -0.1f);
 				}
 
 				// Bonus for good alignment (magnet facing down toward object)
