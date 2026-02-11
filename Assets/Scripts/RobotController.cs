@@ -278,7 +278,20 @@ namespace RobotArm
 				var joint = joints[i];
 				if (joint.jointTransform != null)
 				{
-					joint.initialLocalRotation = joint.jointTransform.localRotation;
+					// Only capture initial rotation if not already set.
+					// When duplicated from a running instance, the correct initialLocalRotation
+					// is inherited via serialization. The transform's localRotation already
+					// includes applied joint rotations and must NOT be recaptured.
+					bool isUninitialized = joint.initialLocalRotation.x == 0f &&
+					                       joint.initialLocalRotation.y == 0f &&
+					                       joint.initialLocalRotation.z == 0f &&
+					                       joint.initialLocalRotation.w == 0f;
+
+					if (isUninitialized)
+					{
+						joint.initialLocalRotation = joint.jointTransform.localRotation;
+					}
+
 					joint.currentAngle = joint.startAngle;
 					targetAngles[i] = joint.startAngle;
 					ApplyJointRotation(i);
