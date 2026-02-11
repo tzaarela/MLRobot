@@ -14,7 +14,8 @@
       "mcp__coplay-mcp__execute_script",
       "mcp__coplay-mcp__get_game_object_info",
       "mcp__coplay-mcp__save_scene",
-      "mcp__coplay-mcp__open_scene"
+      "mcp__coplay-mcp__open_scene",
+      "Bash(ls:*)"
     ]
   }
 }

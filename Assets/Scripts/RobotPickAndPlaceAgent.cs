@@ -263,7 +263,7 @@ namespace RobotArm
 			// Calculate initial distance to home
 			previousJointDistanceToHome = CalculateJointDistanceToHome();
 
-			// Reset environment (robot + all subscribed components)
+			// Reset environment (robot + target object + all subscribed components)
 			if (trainingEnvironment != null)
 			{
 				trainingEnvironment.ResetEnvironment();
@@ -280,9 +280,6 @@ namespace RobotArm
 				cartesianController.ResetTarget();
 			}
 
-			// Reset and randomize object position
-			ResetTargetObject();
-
 			// Cache initial distances
 			previousDistanceToObject = Vector3.Distance(robotController.GetToolPosition(), targetObject.position);
 			previousDistanceToGoal = Vector3.Distance(targetObject.position, dropOffZone.position);
@@ -290,29 +287,9 @@ namespace RobotArm
 
 		private void ResetTargetObject()
 		{
-			if (targetObject == null || targetRigidbody == null) return;
-
-			// Release if held
-			if (robotController.IsHoldingObject())
-			{
-				robotController.SetMagnetActive(false);
-			}
-
-			// Get random spawn position from environment
-			Vector3 randomLocalPos = trainingEnvironment != null
-				? trainingEnvironment.GetRandomSpawnPosition()
-				: Vector3.zero;
-
-			// Randomize y-rotation of object
-			targetObject.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
-
-			// Convert to world position relative to environment root
-			Vector3 worldPos = GetWorldPosition(randomLocalPos);
-
-			// Reset physics
-			targetRigidbody.velocity = Vector3.zero;
-			targetRigidbody.angularVelocity = Vector3.zero;
-			targetObject.position = worldPos;
+			// Magnet release and position/physics reset are now handled by
+			// OnEpisodeBegin (magnet) and TrainingEnvironment.ResetEnvironment() (position/physics).
+			// This method is kept for any agent-specific target reset logic if needed in the future.
 		}
 
 		public override void CollectObservations(VectorSensor sensor)

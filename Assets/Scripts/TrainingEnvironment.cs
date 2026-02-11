@@ -36,6 +36,7 @@ namespace RobotArm
         public bool showDebugLogs = false;
 
 		private Renderer dropZoneRenderer;
+		private Rigidbody targetRigidbody;
 
         // Reset event - components subscribe to this to handle their own reset
         public event System.Action OnEnvironmentReset;
@@ -62,6 +63,10 @@ namespace RobotArm
                 }
             }
             
+            // Cache target rigidbody
+            if (targetObject != null)
+                targetRigidbody = targetObject.GetComponent<Rigidbody>();
+
             // Set environment color
             if (dropOffZone != null)
             {
@@ -82,18 +87,53 @@ namespace RobotArm
         /// </summary>
         public void ResetEnvironment()
         {
+            // Release magnet first so cube doesn't follow robot joint movement
+            if (robotController != null && robotController.magnet != null)
+            {
+                robotController.magnet.Release();
+            }
+
             // Reset robot to starting position
             if (robotController != null)
             {
                 robotController.ResetToStartPosition();
             }
 
+            // Reset target object position and physics
+            if (targetObject != null)
+            {
+                Vector3 randomLocalPos = GetRandomSpawnPosition();
+                Vector3 worldPos = transform.TransformPoint(randomLocalPos);
+                Quaternion newRotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+
+                if (targetRigidbody != null)
+                {
+                    // Disable interpolation to prevent visual blending from old position
+                    var previousInterpolation = targetRigidbody.interpolation;
+                    targetRigidbody.interpolation = RigidbodyInterpolation.None;
+                    targetRigidbody.isKinematic = true;
+
+                    targetObject.position = worldPos;
+                    targetObject.rotation = newRotation;
+                    Physics.SyncTransforms();
+
+                    targetRigidbody.isKinematic = false;
+                    targetRigidbody.velocity = Vector3.zero;
+                    targetRigidbody.angularVelocity = Vector3.zero;
+                    targetRigidbody.interpolation = previousInterpolation;
+                }
+                else
+                {
+                    targetObject.position = worldPos;
+                    targetObject.rotation = newRotation;
+                }
+            }
+
             // Trigger reset event for all subscribed components
-            // (e.g., RobotCartesianController, other systems)
             OnEnvironmentReset?.Invoke();
 
             if (showDebugLogs)
-				Debug.Log("[TrainingEnvironment] Environment reset");
+                Debug.Log("[TrainingEnvironment] Environment reset");
         }
 
         /// <summary>

@@ -28,7 +28,6 @@ namespace MLRobot.UI
 
 		[Header("Settings")]
 		[SerializeField] private float maxBarWidth = 300f;
-		[SerializeField] private float rewardScaleFactor = 10f;
 
 		// Category colors
 		private static readonly Dictionary<RewardCategory, Color> CategoryColors = new Dictionary<RewardCategory, Color>
