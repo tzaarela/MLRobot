@@ -3,6 +3,7 @@ using Unity.MLAgents;
 using Unity.MLAgents.Actuators;
 using Unity.MLAgents.Sensors;
 using MLRobot.UI;
+using MLRobot.Systems;
 
 namespace RobotArm
 {
@@ -247,6 +248,9 @@ namespace RobotArm
 
 			// Initialize current mode based on movement mode setting
 			currentActiveMode = (movementMode == MovementMode.Auto) ? MovementMode.Joint : movementMode;
+
+			// Apply runtime config overrides (config.json / command-line)
+			maxEpisodeSteps = RuntimeConfig.Agent.maxEpisodeSteps;
 		}
 
 		public override void OnEpisodeBegin()
