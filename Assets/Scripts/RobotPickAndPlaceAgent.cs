@@ -174,15 +174,13 @@ namespace RobotArm
 		private Quaternion initialObjectRotation;
 		private float previousDistanceToObject;
 		private float previousDistanceToGoal;
-		private bool hasPickedUp = false;
 		private bool wasHolding = false;
 		private int currentStep = 0;
 		private Vector3 dropZoneSize;
 
-		// Drop zone timer
-		private bool isTimerActive = false;
+		// Phase state machine
+		private AgentPhase currentPhase;
 		private float dropZoneTimer = 0f;
-		private bool hasDroppedInZone = false;
 
 		// Lift bonus tracking (incremental rewards)
 		private float objectPickupHeight = 0f;
@@ -262,7 +260,7 @@ namespace RobotArm
 		public override void OnEpisodeBegin()
 		{
 			currentStep = 0;
-			hasPickedUp = false;
+			currentPhase = AgentPhase.Approaching;
 			wasHolding = false;
 
 			// Reset reward tracking for new episode
@@ -272,9 +270,7 @@ namespace RobotArm
 			}
 
 			// Reset drop zone timer
-			isTimerActive = false;
 			dropZoneTimer = 0f;
-			hasDroppedInZone = false;
 
 			// Reset lift bonus tracking
 			maxLiftHeightReached = 0f;
@@ -501,301 +497,309 @@ namespace RobotArm
 
 		private void CalculateRewards()
 		{
-			// Step penalty for efficiency
+			// Step penalty (always)
 			AddCategorizedReward(RewardCategory.Efficiency, stepPenalty);
 
+			// Cache values used across phases
 			float currentDistToObject = Vector3.Distance(robotController.GetToolPosition(), targetObject.position);
 			float currentDistToGoal = Vector3.Distance(targetObject.position, dropOffZone.position);
-
 			bool isHolding = robotController.IsHoldingObject();
 
-			// Phase 1: Approaching object (when not holding)
-			if (!isHolding)
+			// Evaluate phase transitions (may change currentPhase and fire one-time rewards)
+			EvaluateTransitions(isHolding);
+
+			// Dispatch to per-phase reward logic
+			switch (currentPhase)
 			{
-				// Reward for getting closer to object
-				float approachDelta = previousDistanceToObject - currentDistToObject;
-
-				if (approachDelta > 0)
-				{
-					AddCategorizedReward(RewardCategory.Approach, approachRewardScale);
-				}
-				else
-				{
-					AddCategorizedReward(RewardCategory.Approach, -approachRewardScale);
-				}
-
-				// Bonus for good alignment (magnet facing down toward object)
-				float alignment = Vector3.Dot(robotController.GetMagnetFaceNormal(),
-					(targetObject.position - robotController.GetToolPosition()).normalized);
-
-				if (alignment > 0.8f)
-					AddCategorizedReward(RewardCategory.Alignment, alignmentRewardScale);
-
-				// Debug logging every 100 steps
-				if (showDebugLogs && currentStep % 100 == 0)
-				{
-					Vector3 toolPos = robotController.GetToolPosition();
-					Vector3 objPos = targetObject.position;
-					//Debug.Log($"[Step {currentStep}] ToolPos: {toolPos}, ObjPos: {objPos}, Dist: {currentDistToObject:F3}, PrevDist: {previousDistanceToObject:F3}, Delta: {approachDelta:F4}");
-				}
-
-				// float rayAlignmentReward = robotController.magnet.RaysHitting * 0.05f;
-				// AddCategorizedReward(RewardCategory.Alignment, rayAlignmentReward);
+				case AgentPhase.Approaching:
+					RewardApproaching(currentDistToObject);
+					break;
+				case AgentPhase.Delivering:
+					RewardDelivering(currentDistToGoal);
+					break;
+				case AgentPhase.Placed:
+					RewardPlaced();
+					break;
+				// Succeeded/Failed are terminal — no per-step rewards
 			}
 
-			// Pickup reward (one-time)
-			if (isHolding && !wasHolding)
-			{
-				AddCategorizedReward(RewardCategory.Pickup, pickupReward);
-				hasPickedUp = true;
-				objectPickupHeight = targetObject.position.y; // Record pickup height for lift bonus
-			}
-
-			// Phase 2: Delivering object (when holding)
-			if (isHolding)
-			{
-				// Reward for bringing object closer to goal
-				float deliveryDelta = previousDistanceToGoal - currentDistToGoal;
-
-
-				if (deliveryDelta > 0)
-				{
-					AddCategorizedReward(RewardCategory.Delivery, deliveryRewardScale);
-				}
-				else if (deliveryDelta < 0)
-				{
-					AddCategorizedReward(RewardCategory.Delivery, -deliveryRewardScale);
-				}
-
-				// Incremental rewards for lifting object toward safe height
-				float objectHeight = targetObject.position.y;
-				float liftHeight = Mathf.Min(objectHeight - objectPickupHeight, safeLiftHeight);
-
-				if (liftHeight > maxLiftHeightReached)
-				{
-					float heightGain = liftHeight - maxLiftHeightReached;
-					int incrementsCrossed = Mathf.FloorToInt(heightGain / liftIncrement);
-
-					if (incrementsCrossed > 0)
-					{
-						float reward = incrementsCrossed * liftRewardPerMM;
-						AddCategorizedReward(RewardCategory.Delivery, reward);
-						maxLiftHeightReached += incrementsCrossed * liftIncrement; // Update by exact increments
-
-						if (showDebugLogs)
-						{
-							Debug.Log($"[Lift Progress] +{reward:F4} for {incrementsCrossed}mm lift (now at {maxLiftHeightReached:F3}m / {safeLiftHeight}m)");
-						}
-					}
-				}
-
-				// Reward for maintaining alignment with drop zone rotation
-				// Range: -0.5 (worst, 180° off) to +0.5 (perfect alignment)
-				float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
-				float alignmentFactor = Mathf.Clamp01(1f - (angleToDropZone / 180f));
-				float alignmentReward = goalAlignmentRewardScale * (2f * alignmentFactor - 1f); // [-scale, +scale]
-				AddCategorizedReward(RewardCategory.GoalAlignment, alignmentReward);
-
-				// Reward for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond 90°)
-				float uprightness = Vector3.Dot(targetObject.up, Vector3.up);
-				float uprightReward = uprightness * uprightRewardScale;
-				AddCategorizedReward(RewardCategory.Alignment, uprightReward);
-
-				if (showDebugLogs && currentStep % 100 == 0)
-				{
-					float tiltAngle = Mathf.Acos(Mathf.Clamp(uprightness, -1f, 1f)) * Mathf.Rad2Deg;
-					Debug.Log($"[Alignment] DropZone: {angleToDropZone:F1}° | Upright: {tiltAngle:F1}° (factor: {uprightness:F3}) | Rewards: align={alignmentReward:F4}, upright={uprightReward:F4}");
-				}
-
-				// One-time reward for first reaching the drop zone fully contained and aligned while holding
-				if (!hasReachedZoneAligned && IsObjectInDropZone() && angleToDropZone <= alignmentToleranceForTimer)
-				{
-					hasReachedZoneAligned = true;
-					AddCategorizedReward(RewardCategory.Placement, heldInZoneAlignedReward);
-
-					if (showDebugLogs)
-					{
-						Debug.Log($"[Held In Zone] One-time reward: +{heldInZoneAlignedReward} | Alignment: {angleToDropZone:F1}°");
-					}
-				}
-
-				// Penalize holding object at dangerous heights
-
-				if (objectHeight < objectFallThreshold) // 0.05m
-				{
-					// Strong penalty for critical danger zone
-					AddCategorizedReward(RewardCategory.DropFall, -0.5f);
-
-					if (showDebugLogs)
-					{
-						Debug.LogWarning($"[Agent] Object critically low: {objectHeight:F3}m - HIGH PENALTY");
-					}
-				}
-				else if (objectHeight < objectFallThreshold + 0.05f) // 0.10m warning zone
-				{
-					// Mild penalty for approaching danger
-					AddCategorizedReward(RewardCategory.DropFall, -0.1f);
-				}
-			}
-
-			// Dropped object after picking up
-			if (wasHolding && !isHolding && hasPickedUp)
-			{
-				// Check if dropped in goal zone
-				if (IsObjectInDropZone())
-				{
-					// Check rotation alignment
-					float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
-
-					if (angleToDropZone <= alignmentToleranceForTimer)
-					{
-						// Good alignment - reward and start timer
-						AddCategorizedReward(RewardCategory.Placement, placementReward);
-						isTimerActive = true;
-						dropZoneTimer = 0f;
-						hasDroppedInZone = true;
-
-						if (showDebugLogs)
-						{
-							Debug.Log($"[Placed in zone] Reward: +{placementReward} | Alignment: {angleToDropZone:F1}° | Timer started");
-						}
-					}
-					else
-					{
-						// Poor alignment - penalty, no timer
-						float alignmentPenalty = -0.3f * (angleToDropZone / 180f);
-						AddCategorizedReward(RewardCategory.Alignment, alignmentPenalty);
-
-						if (showDebugLogs)
-						{
-							Debug.Log($"[Poor Alignment] {angleToDropZone:F1}° (max: {alignmentToleranceForTimer}°) | Penalty: {alignmentPenalty:F3}");
-						}
-					}
-				}
-				else
-				{
-					if (showDebugLogs)
-					{
-						Debug.Log($"[Reward] Value: {dropPenalty} | Dropped object outside goal zone.");
-					}
-					AddCategorizedReward(RewardCategory.DropFall, dropPenalty);
-					EndEpisode();
-				}
-			}
-
-			// Drop zone timer logic
-			if (isTimerActive && hasDroppedInZone)
-			{
-				// Check if object is still in zone
-				if (IsObjectInDropZone())
-				{
-					dropZoneTimer += Time.fixedDeltaTime;
-
-					// Continuous reward for keeping object in zone
-					AddCategorizedReward(RewardCategory.Placement, inZoneRewardPerStep);
-
-					// Update home status
-					bool wasAtHome = isAtHome;
-					isAtHome = CheckIfAtHome();
-
-					// One-time reward for arriving at home
-					if (isAtHome && !wasAtHome && !hasReturnedHome)
-					{
-						AddCategorizedReward(RewardCategory.Home, homeArrivalReward);
-						hasReturnedHome = true;
-
-						if (showDebugLogs)
-						{
-							Debug.Log($"[Home Arrival] Reward: +{homeArrivalReward}");
-						}
-					}
-
-					// Continuous reward for being at home
-					if (isAtHome)
-					{
-						AddCategorizedReward(RewardCategory.Home, atHomeRewardPerStep);
-					}
-					else
-					{
-						// Reward for moving toward home
-						float currentDistToHome = CalculateJointDistanceToHome();
-						float homeApproachDelta = previousJointDistanceToHome - currentDistToHome;
-
-						if (homeApproachDelta > 0)
-						{
-							float homeApproachReward = homeApproachDelta * homeApproachRewardScale;
-							AddCategorizedReward(RewardCategory.Home, homeApproachReward);
-						}
-
-						previousJointDistanceToHome = currentDistToHome;
-					}
-
-					if (showDebugLogs && currentStep % 50 == 0)
-					{
-						float stayDuration = trainingEnvironment != null ? trainingEnvironment.dropZoneStayDuration : 1f;
-						Debug.Log($"[Timer] {dropZoneTimer:F2}s / {stayDuration:F2}s | At home: {isAtHome} | Joint dist: {CalculateJointDistanceToHome():F1}°");
-					}
-
-					// Success! Timer completed
-					float requiredDuration = trainingEnvironment != null ? trainingEnvironment.dropZoneStayDuration : 1f;
-					if (dropZoneTimer >= requiredDuration)
-					{
-						// Base success reward (50%)
-						float baseReward = successReward * 0.5f;
-						AddCategorizedReward(RewardCategory.Success, baseReward);
-
-						// Bonus for being at home (50%)
-						if (isAtHome)
-						{
-							AddCategorizedReward(RewardCategory.Home, homeReturnBonus);
-
-							if (showDebugLogs)
-							{
-								Debug.Log($"[SUCCESS + HOME!] Base: +{baseReward:F2} | Home bonus: +{homeReturnBonus:F2}");
-							}
-						}
-						else
-						{
-							if (showDebugLogs)
-							{
-								Debug.Log($"[SUCCESS (no home)] Base: +{baseReward:F2} | Missed bonus: {homeReturnBonus:F2}");
-							}
-						}
-
-						isTimerActive = false;
-						EndEpisode();
-					}
-				}
-				else
-				{
-					// Object left the zone - reset timer
-					if (showDebugLogs)
-					{
-						Debug.Log($"[Timer Reset] Object left drop zone after {dropZoneTimer:F2}s");
-					}
-					isTimerActive = false;
-					dropZoneTimer = 0f;
-					hasDroppedInZone = false;
-				}
-			}
-
-			// Check if held object went below floor (CRITICAL: Check BEFORE updating wasHolding)
-			if (isHolding && targetObject.position.y < objectFallThreshold)
-			{
-				if (showDebugLogs)
-				{
-					Debug.LogWarning($"[Failure] Agent pushed held object below floor: y={targetObject.position.y:F3}m");
-				}
-
-				AddCategorizedReward(RewardCategory.DropFall, dropPenalty * 2f); // -1.0f (double penalty for active exploit)
-				EndEpisode();
-				return;
-			}
-
-			// Update tracking
+			// Update tracking for next step
 			previousDistanceToObject = currentDistToObject;
 			previousDistanceToGoal = currentDistToGoal;
 			wasHolding = isHolding;
+		}
+
+		/// <summary>
+		/// Check phase exit conditions and fire one-time transition rewards.
+		/// Order matters: check most specific transitions first.
+		/// </summary>
+		private void EvaluateTransitions(bool isHolding)
+		{
+			switch (currentPhase)
+			{
+				case AgentPhase.Approaching:
+					// Pickup: just grabbed the object
+					if (isHolding && !wasHolding)
+					{
+						AddCategorizedReward(RewardCategory.Pickup, pickupReward);
+						objectPickupHeight = targetObject.position.y;
+						TransitionTo(AgentPhase.Delivering);
+					}
+					break;
+
+				case AgentPhase.Delivering:
+					// Floor exploit: held object below threshold
+					if (isHolding && targetObject.position.y < objectFallThreshold)
+					{
+						if (showDebugLogs)
+							Debug.LogWarning($"[Failure] Agent pushed held object below floor: y={targetObject.position.y:F3}m");
+						AddCategorizedReward(RewardCategory.DropFall, dropPenalty * 2f);
+						TransitionTo(AgentPhase.Failed);
+						EndEpisode();
+						return;
+					}
+					// Dropped the object while delivering
+					if (wasHolding && !isHolding)
+					{
+						HandleObjectDropped();
+					}
+					break;
+
+				case AgentPhase.Placed:
+					// Object left the zone — reset timer, go back to Approaching
+					if (!IsObjectInDropZone())
+					{
+						if (showDebugLogs)
+							Debug.Log($"[Timer Reset] Object left drop zone after {dropZoneTimer:F2}s");
+						dropZoneTimer = 0f;
+						TransitionTo(AgentPhase.Approaching);
+					}
+					// Agent re-grabbed the object during Placed phase
+					else if (isHolding && !wasHolding)
+					{
+						dropZoneTimer = 0f;
+						AddCategorizedReward(RewardCategory.Pickup, pickupReward);
+						objectPickupHeight = targetObject.position.y;
+						TransitionTo(AgentPhase.Delivering);
+					}
+					break;
+			}
+		}
+
+		/// <summary>
+		/// Encapsulates the 3-way drop logic: in-zone+aligned, in-zone+misaligned, outside zone.
+		/// Called from EvaluateTransitions when wasHolding && !isHolding in Delivering phase.
+		/// </summary>
+		private void HandleObjectDropped()
+		{
+			if (IsObjectInDropZone())
+			{
+				float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
+
+				if (angleToDropZone <= alignmentToleranceForTimer)
+				{
+					// Good alignment — reward and start timer
+					AddCategorizedReward(RewardCategory.Placement, placementReward);
+					dropZoneTimer = 0f;
+					TransitionTo(AgentPhase.Placed);
+
+					if (showDebugLogs)
+						Debug.Log($"[Placed in zone] Reward: +{placementReward} | Alignment: {angleToDropZone:F1}° | Timer started");
+				}
+				else
+				{
+					// Poor alignment — penalty, back to Approaching (can re-pick)
+					float alignmentPenalty = -0.3f * (angleToDropZone / 180f);
+					AddCategorizedReward(RewardCategory.Alignment, alignmentPenalty);
+					TransitionTo(AgentPhase.Approaching);
+
+					if (showDebugLogs)
+						Debug.Log($"[Poor Alignment] {angleToDropZone:F1}° (max: {alignmentToleranceForTimer}°) | Penalty: {alignmentPenalty:F3}");
+				}
+			}
+			else
+			{
+				// Dropped outside zone — fail
+				if (showDebugLogs)
+					Debug.Log($"[Reward] Value: {dropPenalty} | Dropped object outside goal zone.");
+				AddCategorizedReward(RewardCategory.DropFall, dropPenalty);
+				TransitionTo(AgentPhase.Failed);
+				EndEpisode();
+			}
+		}
+
+		/// <summary>
+		/// Set phase and log transition for debugging.
+		/// </summary>
+		private void TransitionTo(AgentPhase newPhase)
+		{
+			if (showDebugLogs)
+				Debug.Log($"[Phase] {currentPhase} → {newPhase} (step {currentStep})");
+			currentPhase = newPhase;
+		}
+
+		/// <summary>
+		/// Rewards for Approaching phase: move toward object, align magnet.
+		/// </summary>
+		private void RewardApproaching(float currentDistToObject)
+		{
+			// Reward for getting closer to object
+			float approachDelta = previousDistanceToObject - currentDistToObject;
+			AddCategorizedReward(RewardCategory.Approach, approachDelta > 0 ? approachRewardScale : -approachRewardScale);
+
+			// Bonus for good alignment (magnet facing toward object)
+			float alignment = Vector3.Dot(robotController.GetMagnetFaceNormal(),
+				(targetObject.position - robotController.GetToolPosition()).normalized);
+			if (alignment > 0.8f)
+				AddCategorizedReward(RewardCategory.Alignment, alignmentRewardScale);
+		}
+
+		/// <summary>
+		/// Rewards for Delivering phase: move to goal, lift, align, keep upright.
+		/// </summary>
+		private void RewardDelivering(float currentDistToGoal)
+		{
+			// Reward for bringing object closer to goal
+			float deliveryDelta = previousDistanceToGoal - currentDistToGoal;
+			if (deliveryDelta > 0)
+				AddCategorizedReward(RewardCategory.Delivery, deliveryRewardScale);
+			else if (deliveryDelta < 0)
+				AddCategorizedReward(RewardCategory.Delivery, -deliveryRewardScale);
+
+			// Incremental rewards for lifting object toward safe height
+			float objectHeight = targetObject.position.y;
+			float liftHeight = Mathf.Min(objectHeight - objectPickupHeight, safeLiftHeight);
+
+			if (liftHeight > maxLiftHeightReached)
+			{
+				float heightGain = liftHeight - maxLiftHeightReached;
+				int incrementsCrossed = Mathf.FloorToInt(heightGain / liftIncrement);
+
+				if (incrementsCrossed > 0)
+				{
+					float reward = incrementsCrossed * liftRewardPerMM;
+					AddCategorizedReward(RewardCategory.Delivery, reward);
+					maxLiftHeightReached += incrementsCrossed * liftIncrement;
+
+					if (showDebugLogs)
+						Debug.Log($"[Lift Progress] +{reward:F4} for {incrementsCrossed}mm lift (now at {maxLiftHeightReached:F3}m / {safeLiftHeight}m)");
+				}
+			}
+
+			// Reward for maintaining alignment with drop zone rotation
+			float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
+			float alignmentFactor = Mathf.Clamp01(1f - (angleToDropZone / 180f));
+			float alignmentReward = goalAlignmentRewardScale * (2f * alignmentFactor - 1f);
+			AddCategorizedReward(RewardCategory.GoalAlignment, alignmentReward);
+
+			// Reward for holding object upright
+			float uprightness = Vector3.Dot(targetObject.up, Vector3.up);
+			float uprightReward = uprightness * uprightRewardScale;
+			AddCategorizedReward(RewardCategory.Alignment, uprightReward);
+
+			if (showDebugLogs && currentStep % 100 == 0)
+			{
+				float tiltAngle = Mathf.Acos(Mathf.Clamp(uprightness, -1f, 1f)) * Mathf.Rad2Deg;
+				Debug.Log($"[Alignment] DropZone: {angleToDropZone:F1}° | Upright: {tiltAngle:F1}° (factor: {uprightness:F3}) | Rewards: align={alignmentReward:F4}, upright={uprightReward:F4}");
+			}
+
+			// One-time reward for first reaching the drop zone fully contained and aligned while holding
+			if (!hasReachedZoneAligned && IsObjectInDropZone() && angleToDropZone <= alignmentToleranceForTimer)
+			{
+				hasReachedZoneAligned = true;
+				AddCategorizedReward(RewardCategory.Placement, heldInZoneAlignedReward);
+
+				if (showDebugLogs)
+					Debug.Log($"[Held In Zone] One-time reward: +{heldInZoneAlignedReward} | Alignment: {angleToDropZone:F1}°");
+			}
+
+			// Penalize holding object at dangerous heights
+			if (objectHeight < objectFallThreshold)
+			{
+				AddCategorizedReward(RewardCategory.DropFall, -0.5f);
+				if (showDebugLogs)
+					Debug.LogWarning($"[Agent] Object critically low: {objectHeight:F3}m - HIGH PENALTY");
+			}
+			else if (objectHeight < objectFallThreshold + 0.05f)
+			{
+				AddCategorizedReward(RewardCategory.DropFall, -0.1f);
+			}
+		}
+
+		/// <summary>
+		/// Rewards for Placed phase: timer, home return, success check.
+		/// </summary>
+		private void RewardPlaced()
+		{
+			dropZoneTimer += Time.fixedDeltaTime;
+
+			// Continuous reward for keeping object in zone
+			AddCategorizedReward(RewardCategory.Placement, inZoneRewardPerStep);
+
+			// Update home status
+			bool wasAtHome = isAtHome;
+			isAtHome = CheckIfAtHome();
+
+			// One-time reward for arriving at home
+			if (isAtHome && !wasAtHome && !hasReturnedHome)
+			{
+				AddCategorizedReward(RewardCategory.Home, homeArrivalReward);
+				hasReturnedHome = true;
+
+				if (showDebugLogs)
+					Debug.Log($"[Home Arrival] Reward: +{homeArrivalReward}");
+			}
+
+			// Continuous reward for being at home
+			if (isAtHome)
+			{
+				AddCategorizedReward(RewardCategory.Home, atHomeRewardPerStep);
+			}
+			else
+			{
+				// Reward for moving toward home
+				float currentDistToHome = CalculateJointDistanceToHome();
+				float homeApproachDelta = previousJointDistanceToHome - currentDistToHome;
+
+				if (homeApproachDelta > 0)
+				{
+					float homeApproachReward = homeApproachDelta * homeApproachRewardScale;
+					AddCategorizedReward(RewardCategory.Home, homeApproachReward);
+				}
+
+				previousJointDistanceToHome = currentDistToHome;
+			}
+
+			if (showDebugLogs && currentStep % 50 == 0)
+			{
+				float stayDuration = trainingEnvironment != null ? trainingEnvironment.dropZoneStayDuration : 1f;
+				Debug.Log($"[Timer] {dropZoneTimer:F2}s / {stayDuration:F2}s | At home: {isAtHome} | Joint dist: {CalculateJointDistanceToHome():F1}°");
+			}
+
+			// Success! Timer completed
+			float requiredDuration = trainingEnvironment != null ? trainingEnvironment.dropZoneStayDuration : 1f;
+			if (dropZoneTimer >= requiredDuration)
+			{
+				// Base success reward (50%)
+				float baseReward = successReward * 0.5f;
+				AddCategorizedReward(RewardCategory.Success, baseReward);
+
+				// Bonus for being at home (50%)
+				if (isAtHome)
+				{
+					AddCategorizedReward(RewardCategory.Home, homeReturnBonus);
+					if (showDebugLogs)
+						Debug.Log($"[SUCCESS + HOME!] Base: +{baseReward:F2} | Home bonus: +{homeReturnBonus:F2}");
+				}
+				else
+				{
+					if (showDebugLogs)
+						Debug.Log($"[SUCCESS (no home)] Base: +{baseReward:F2} | Missed bonus: {homeReturnBonus:F2}");
+				}
+
+				TransitionTo(AgentPhase.Succeeded);
+				EndEpisode();
+			}
 		}
 
 		private void CheckEpisodeEnd()
