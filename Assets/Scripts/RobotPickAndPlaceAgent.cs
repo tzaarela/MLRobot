@@ -121,6 +121,9 @@ namespace RobotArm
 		[Tooltip("Reward scale for maintaining object alignment with drop zone rotation")]
 		public float goalAlignmentRewardScale = 0.01f;
 
+		[Tooltip("One-time reward when held object is first fully contained and aligned in drop zone")]
+		public float heldInZoneAlignedReward = 2.0f;
+
 		[Tooltip("Reward scale for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond)")]
 		public float uprightRewardScale = 0.02f;
 
@@ -184,6 +187,9 @@ namespace RobotArm
 		// Lift bonus tracking (incremental rewards)
 		private float objectPickupHeight = 0f;
 		private float maxLiftHeightReached = 0f; // Max lift achieved this episode
+
+		// Held-in-zone milestone
+		private bool hasReachedZoneAligned = false;
 
 		// Home return tracking
 		private float[] homeJointAngles = new float[6];
@@ -273,6 +279,9 @@ namespace RobotArm
 			// Reset lift bonus tracking
 			maxLiftHeightReached = 0f;
 			objectPickupHeight = 0f;
+
+			// Reset held-in-zone milestone
+			hasReachedZoneAligned = false;
 
 			// Reset current mode (for Auto mode, start with Joint)
 			currentActiveMode = (movementMode == MovementMode.Auto) ? MovementMode.Joint : movementMode;
@@ -581,9 +590,10 @@ namespace RobotArm
 				}
 
 				// Reward for maintaining alignment with drop zone rotation
+				// Range: -0.5 (worst, 180° off) to +0.5 (perfect alignment)
 				float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
 				float alignmentFactor = Mathf.Clamp01(1f - (angleToDropZone / 180f));
-				float alignmentReward = goalAlignmentRewardScale * alignmentFactor;
+				float alignmentReward = goalAlignmentRewardScale * (2f * alignmentFactor - 1f); // [-scale, +scale]
 				AddCategorizedReward(RewardCategory.GoalAlignment, alignmentReward);
 
 				// Reward for holding object upright (1.0 at 0° tilt, 0 at 90°, negative beyond 90°)
@@ -595,6 +605,18 @@ namespace RobotArm
 				{
 					float tiltAngle = Mathf.Acos(Mathf.Clamp(uprightness, -1f, 1f)) * Mathf.Rad2Deg;
 					Debug.Log($"[Alignment] DropZone: {angleToDropZone:F1}° | Upright: {tiltAngle:F1}° (factor: {uprightness:F3}) | Rewards: align={alignmentReward:F4}, upright={uprightReward:F4}");
+				}
+
+				// One-time reward for first reaching the drop zone fully contained and aligned while holding
+				if (!hasReachedZoneAligned && IsObjectInDropZone() && angleToDropZone <= alignmentToleranceForTimer)
+				{
+					hasReachedZoneAligned = true;
+					AddCategorizedReward(RewardCategory.Placement, heldInZoneAlignedReward);
+
+					if (showDebugLogs)
+					{
+						Debug.Log($"[Held In Zone] One-time reward: +{heldInZoneAlignedReward} | Alignment: {angleToDropZone:F1}°");
+					}
 				}
 
 				// Penalize holding object at dangerous heights
