@@ -8,6 +8,9 @@ Control a 6-axis robot arm with a magnetic gripper to pick up objects and place 
 
 ![Unity 2022.3.50f1](https://img.shields.io/badge/Unity-2022.3.50f1-black) ![ML-Agents](https://img.shields.io/badge/ML--Agents-PPO-blue) ![Platform](https://img.shields.io/badge/Platform-Windows-lightgrey)
 
+<img width="1919" height="1032" alt="Screenshot 2026-02-17 113802" src="https://github.com/user-attachments/assets/67c725e9-ec04-4029-88bb-5ae5848e6565" />
+
+
 ## Gameplay Loop
 
 1. Episode starts with randomized object and drop zone positions
