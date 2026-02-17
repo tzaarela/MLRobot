@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using UnityEngine;
+using MLRobot.Systems;
 
 namespace RobotArm
 {
@@ -37,6 +38,11 @@ namespace RobotArm
 
 		private void Start()
 		{
+			// Apply runtime config overrides (JSON / CLI)
+			gridX = RuntimeConfig.Training.gridX;
+			gridZ = RuntimeConfig.Training.gridZ;
+			spacing = RuntimeConfig.Training.spacing;
+
 			if (createOnStart)
 			{
 				CreateEnvironments();

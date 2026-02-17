@@ -1,0 +1,12 @@
+{
+	"agent": {
+		"maxEpisodeSteps": 1500
+	},
+
+	"training": {
+		"gridX": 2,
+		"gridZ": 2,
+		"spacing": 10.0
+	}
+
+}

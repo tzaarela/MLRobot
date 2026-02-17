@@ -93,16 +93,18 @@ namespace RobotArm
                 EditorApplication.isPlaying = false;
                 EditorApplication.delayCall += () => {
                     SetAllAgentsMode(BehaviorType.HeuristicOnly);
+                    SetParallelTraining(false);
                     EditorApplication.delayCall += () => EditorApplication.isPlaying = true;
                 };
             }
             else
             {
                 SetAllAgentsMode(BehaviorType.HeuristicOnly);
+                SetParallelTraining(false);
                 EditorApplication.isPlaying = true;
             }
-            
-            Debug.Log("<color=green>[Training Mode]</color> Starting in PLAYER mode (Heuristic Only)");
+
+            Debug.Log("<color=green>[Training Mode]</color> Starting in PLAYER mode (Heuristic Only, parallel off)");
         }
 
         private void StartAsAI()
@@ -112,16 +114,18 @@ namespace RobotArm
                 EditorApplication.isPlaying = false;
                 EditorApplication.delayCall += () => {
                     SetAllAgentsMode(BehaviorType.Default);
+                    SetParallelTraining(true);
                     EditorApplication.delayCall += () => EditorApplication.isPlaying = true;
                 };
             }
             else
             {
                 SetAllAgentsMode(BehaviorType.Default);
+                SetParallelTraining(true);
                 EditorApplication.isPlaying = true;
             }
-            
-            Debug.Log("<color=blue>[Training Mode]</color> Starting in AI mode (Training/Inference)");
+
+            Debug.Log("<color=blue>[Training Mode]</color> Starting in AI mode (Training/Inference, parallel on)");
         }
 
         private void SetAllAgentsMode(BehaviorType mode)
@@ -196,6 +200,17 @@ namespace RobotArm
             EditorGUILayout.EndVertical();
         }
 
+        private static void SetParallelTraining(bool enabled)
+        {
+            var ptm = Object.FindObjectOfType<ParallelTrainingManager>();
+            if (ptm != null)
+            {
+                ptm.createOnStart = enabled;
+                EditorUtility.SetDirty(ptm);
+                Debug.Log($"[Training Mode] Parallel training {(enabled ? "enabled" : "disabled")}");
+            }
+        }
+
         private void OnInspectorUpdate()
         {
             // Refresh UI periodically
@@ -212,22 +227,24 @@ namespace RobotArm
         public static void PlayAsPlayer()
         {
             SetAllAgentModes(BehaviorType.HeuristicOnly);
+            SetParallelTraining(false);
             if (!EditorApplication.isPlaying)
             {
                 EditorApplication.isPlaying = true;
             }
-            Debug.Log("<color=green>[Training Mode]</color> Set to PLAYER mode (Heuristic Only)");
+            Debug.Log("<color=green>[Training Mode]</color> Set to PLAYER mode (Heuristic Only, parallel off)");
         }
 
         [MenuItem("Robot Arm/Play as AI %&a", priority = 2)]
         public static void PlayAsAI()
         {
             SetAllAgentModes(BehaviorType.Default);
+            SetParallelTraining(true);
             if (!EditorApplication.isPlaying)
             {
                 EditorApplication.isPlaying = true;
             }
-            Debug.Log("<color=blue>[Training Mode]</color> Set to AI mode (Training/Inference)");
+            Debug.Log("<color=blue>[Training Mode]</color> Set to AI mode (Training/Inference, parallel on)");
         }
 
         [MenuItem("Robot Arm/Set Mode/Heuristic Only (Player)", priority = 11)]
@@ -255,7 +272,7 @@ namespace RobotArm
         {
             var agents = Object.FindObjectsOfType<BehaviorParameters>();
             int count = 0;
-            
+
             foreach (var agent in agents)
             {
                 agent.BehaviorType = mode;
@@ -270,6 +287,16 @@ namespace RobotArm
             else
             {
                 Debug.Log($"Updated {count} agent(s) to {mode} mode");
+            }
+        }
+
+        private static void SetParallelTraining(bool enabled)
+        {
+            var ptm = Object.FindObjectOfType<ParallelTrainingManager>();
+            if (ptm != null)
+            {
+                ptm.createOnStart = enabled;
+                EditorUtility.SetDirty(ptm);
             }
         }
     }
