@@ -154,9 +154,13 @@ namespace RobotArm
 			if (!objectInZone)
 				return startColor;
 
-			// Object is in zone - check alignment
-			float angleToDropZone = Quaternion.Angle(agent.targetObject.rotation, transform.rotation);
-			bool goodAlignment = angleToDropZone <= agent.alignmentToleranceForTimer;
+			// Object is in zone - check yaw alignment (matches agent's CalculateYawDifference logic)
+			Vector3 objectForward = Vector3.ProjectOnPlane(agent.targetObject.forward, Vector3.up);
+			Vector3 goalForward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+			float yawDiff = (objectForward.sqrMagnitude < 0.001f || goalForward.sqrMagnitude < 0.001f)
+				? 180f
+				: Vector3.Angle(objectForward.normalized, goalForward.normalized);
+			bool goodAlignment = yawDiff <= agent.alignmentToleranceForTimer;
 
 			if (!goodAlignment)
 				return startColor; // In zone but misaligned - show default color

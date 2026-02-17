@@ -6905,9 +6905,24 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
+      propertyPath: successReward
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
       propertyPath: environmentRoot
       value: 
       objectReference: {fileID: 1978629291}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: placementReward
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: uprightRewardScale
+      value: 0.01
+      objectReference: {fileID: 0}
     - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
       propertyPath: approachRewardScale
@@ -6915,9 +6930,29 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
+      propertyPath: deliveryRewardScale
+      value: 0.04
+      objectReference: {fileID: 0}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
       propertyPath: trainingEnvironment
       value: 
       objectReference: {fileID: 1978629290}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: heldInZoneAlignedReward
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: goalAlignmentRewardScale
+      value: 0.02
+      objectReference: {fileID: 0}
+    - target: {fileID: 279619336624593241, guid: 4c50d441cae23664d9389fbb53d172ed,
+        type: 3}
+      propertyPath: cartesianOrientationActionScale
+      value: 10
+      objectReference: {fileID: 0}
     - target: {fileID: 291405614291387463, guid: 4c50d441cae23664d9389fbb53d172ed,
         type: 3}
       propertyPath: m_Materials.Array.data[0]

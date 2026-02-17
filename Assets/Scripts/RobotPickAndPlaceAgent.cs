@@ -594,9 +594,9 @@ namespace RobotArm
 		{
 			if (IsObjectInDropZone())
 			{
-				float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
+				float yawDiff = CalculateYawDifference();
 
-				if (angleToDropZone <= alignmentToleranceForTimer)
+				if (yawDiff <= alignmentToleranceForTimer)
 				{
 					// Good alignment — reward and start timer
 					AddCategorizedReward(RewardCategory.Placement, placementReward);
@@ -604,17 +604,17 @@ namespace RobotArm
 					TransitionTo(AgentPhase.Placed);
 
 					if (showDebugLogs)
-						Debug.Log($"[Placed in zone] Reward: +{placementReward} | Alignment: {angleToDropZone:F1}° | Timer started");
+						Debug.Log($"[Placed in zone] Reward: +{placementReward} | Yaw: {yawDiff:F1}° | Timer started");
 				}
 				else
 				{
 					// Poor alignment — penalty, back to Approaching (can re-pick)
-					float alignmentPenalty = -0.3f * (angleToDropZone / 180f);
+					float alignmentPenalty = -0.3f * (yawDiff / 180f);
 					AddCategorizedReward(RewardCategory.Alignment, alignmentPenalty);
 					TransitionTo(AgentPhase.Approaching);
 
 					if (showDebugLogs)
-						Debug.Log($"[Poor Alignment] {angleToDropZone:F1}° (max: {alignmentToleranceForTimer}°) | Penalty: {alignmentPenalty:F3}");
+						Debug.Log($"[Poor Alignment] Yaw: {yawDiff:F1}° (max: {alignmentToleranceForTimer}°) | Penalty: {alignmentPenalty:F3}");
 				}
 			}
 			else
@@ -686,10 +686,10 @@ namespace RobotArm
 				}
 			}
 
-			// Reward for maintaining alignment with drop zone rotation
-			float angleToDropZone = Quaternion.Angle(targetObject.rotation, dropOffZone.rotation);
-			float alignmentFactor = Mathf.Clamp01(1f - (angleToDropZone / 180f));
-			float alignmentReward = goalAlignmentRewardScale * (2f * alignmentFactor - 1f);
+			// Reward for maintaining yaw alignment with drop zone rotation (quadratic mapping)
+			float yawDiff = CalculateYawDifference();
+			float normalizedYaw = yawDiff / 180f;
+			float alignmentReward = goalAlignmentRewardScale * (1f - 2f * normalizedYaw * normalizedYaw);
 			AddCategorizedReward(RewardCategory.GoalAlignment, alignmentReward);
 
 			// Reward for holding object upright
@@ -700,17 +700,17 @@ namespace RobotArm
 			if (showDebugLogs && currentStep % 100 == 0)
 			{
 				float tiltAngle = Mathf.Acos(Mathf.Clamp(uprightness, -1f, 1f)) * Mathf.Rad2Deg;
-				Debug.Log($"[Alignment] DropZone: {angleToDropZone:F1}° | Upright: {tiltAngle:F1}° (factor: {uprightness:F3}) | Rewards: align={alignmentReward:F4}, upright={uprightReward:F4}");
+				Debug.Log($"[Alignment] Yaw: {yawDiff:F1}° | Upright: {tiltAngle:F1}° (factor: {uprightness:F3}) | Rewards: align={alignmentReward:F4}, upright={uprightReward:F4}");
 			}
 
 			// One-time reward for first reaching the drop zone fully contained and aligned while holding
-			if (!hasReachedZoneAligned && IsObjectInDropZone() && angleToDropZone <= alignmentToleranceForTimer)
+			if (!hasReachedZoneAligned && IsObjectInDropZone() && yawDiff <= alignmentToleranceForTimer)
 			{
 				hasReachedZoneAligned = true;
 				AddCategorizedReward(RewardCategory.Placement, heldInZoneAlignedReward);
 
 				if (showDebugLogs)
-					Debug.Log($"[Held In Zone] One-time reward: +{heldInZoneAlignedReward} | Alignment: {angleToDropZone:F1}°");
+					Debug.Log($"[Held In Zone] One-time reward: +{heldInZoneAlignedReward} | Yaw: {yawDiff:F1}°");
 			}
 
 			// Penalize holding object at dangerous heights
@@ -966,6 +966,19 @@ namespace RobotArm
 		private bool CheckIfAtHome()
 		{
 			return CalculateJointDistanceToHome() <= homePositionTolerance;
+		}
+
+		/// <summary>
+		/// Calculate yaw-only rotation difference between target object and drop zone.
+		/// Projects forward vectors onto the horizontal plane, ignoring tilt (handled by uprightRewardScale).
+		/// </summary>
+		private float CalculateYawDifference()
+		{
+			Vector3 objectForward = Vector3.ProjectOnPlane(targetObject.forward, Vector3.up);
+			Vector3 goalForward = Vector3.ProjectOnPlane(dropOffZone.forward, Vector3.up);
+			if (objectForward.sqrMagnitude < 0.001f || goalForward.sqrMagnitude < 0.001f)
+				return 180f; // Degenerate (cube nearly upside-down) — treat as worst case
+			return Vector3.Angle(objectForward.normalized, goalForward.normalized);
 		}
 
 		/// <summary>
