@@ -32,10 +32,10 @@ Intuitive 3D position and orientation control using inverse kinematics.
 | Arrow keys | Rotate tool orientation |
 | Numpad 7/9 | Rotate J6 |
 | Tab | Toggle world/tool reference frame |
-| Space | Toggle Magnet
-| V | Toggle joint/cartesion mode
-| F9 | Hide Reward Frame
-| Numpad 1/2/3 | Different Cameras
+| Space | Toggle Magnet |
+| V | Toggle joint/cartesion mode |
+| F9 | Hide Reward Frame |
+| Numpad 1/2/3 | Different Cameras |
 
 
 ## ML Training
