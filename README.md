@@ -45,6 +45,7 @@ The agent uses PPO (Proximal Policy Optimization) via Unity ML-Agents. Training 
 To train:
 ```bash
 mlagents-learn.exe Training\RobotPickAndPlace.yaml --run-id={runId}
+mlagents-learn.exe Training\RobotPickAndPlace.yaml --env=Builds\Latest\ML-Robot.exe --num-envs=4 --run-id=FreshStart
 ```
 
 ## Requirements
